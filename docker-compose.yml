@@ -1,0 +1,38 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: together-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: together
+      POSTGRES_USER: together
+      POSTGRES_PASSWORD: together_local_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - together-postgres-data:/var/lib/postgresql/data
+      - ./infra/schema.sql:/docker-entrypoint-initdb.d/001-schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U together -d together"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: together-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - together-redis-data:/data
+    command: ["redis-server", "--appendonly", "yes"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  together-postgres-data:
+  together-redis-data:
