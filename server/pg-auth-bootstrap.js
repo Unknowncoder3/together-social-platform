@@ -35,8 +35,6 @@ const auth = (req, res, next) => {
   }
 };
 
-const roomCode = () => crypto.randomBytes(5).toString('hex').toUpperCase();
-
 async function migrateUsers() {
   const status = await checkPostgres();
   if (!status.ok) return;
@@ -59,35 +57,33 @@ async function migrateSocialData() {
   if (!status.ok) return;
   const pool = getPool();
   const db = loadJsonDb();
+  const userIds = new Set((await pool.query('SELECT id::text FROM users')).rows.map(r => r.id));
 
-  // Preserve existing friend relationships and IDs so old references remain valid.
-  for (const friend of db.friends || []) {
-    if (!friend?.id || !friend.from || !friend.to || !friend.status) continue;
+  for (const friendship of db.friends || []) {
+    if (!friendship?.id || !userIds.has(String(friendship.from)) || !userIds.has(String(friendship.to))) continue;
     await pool.query(
       `INSERT INTO friendships (id, from_user_id, to_user_id, status)
        VALUES ($1::uuid, $2::uuid, $3::uuid, $4)
-       ON CONFLICT (from_user_id, to_user_id) DO UPDATE SET status = EXCLUDED.status`,
-      [friend.id, friend.from, friend.to, friend.status]
+       ON CONFLICT (from_user_id, to_user_id) DO UPDATE SET status=EXCLUDED.status`,
+      [friendship.id, friendship.from, friendship.to, friendship.status || 'pending']
     );
   }
 
-  // Preserve existing rooms and membership rows.
   for (const room of db.rooms || []) {
-    if (!room?.id || !room?.owner || !room?.name) continue;
-    const code = room.code || roomCode();
+    if (!room?.id || !room?.owner || !userIds.has(String(room.owner))) continue;
     await pool.query(
       `INSERT INTO rooms (id, code, name, owner_id, created_at)
-       VALUES ($1::uuid, $2, $3, $4::uuid, $5)
-       ON CONFLICT (id) DO UPDATE
-       SET code = EXCLUDED.code, name = EXCLUDED.name, owner_id = EXCLUDED.owner_id`,
-      [room.id, code, room.name, room.owner, room.createdAt || new Date().toISOString()]
+       VALUES ($1::uuid, $2, $3, $4::uuid, COALESCE($5::timestamptz, NOW()))
+       ON CONFLICT (id) DO UPDATE SET code=EXCLUDED.code, name=EXCLUDED.name, owner_id=EXCLUDED.owner_id`,
+      [room.id, room.code || crypto.randomBytes(5).toString('hex').toUpperCase(), room.name || 'Together Room', room.owner, room.createdAt || null]
     );
-    for (const userId of room.members || []) {
+    for (const memberId of room.members || []) {
+      if (!userIds.has(String(memberId))) continue;
       await pool.query(
         `INSERT INTO room_members (room_id, user_id)
          VALUES ($1::uuid, $2::uuid)
          ON CONFLICT (room_id, user_id) DO NOTHING`,
-        [room.id, userId]
+        [room.id, memberId]
       );
     }
   }
@@ -119,7 +115,7 @@ express.application.post = function(pathname, ...handlers) {
         );
         const db = loadJsonDb();
         db.users ||= [];
-        db.users.push(user); // temporary dual-write for remaining JSON-backed features
+        db.users.push(user);
         saveJsonDb(db);
         return res.status(201).json({ token: tokenFor(user), user: pub(user) });
       } catch (error) {
@@ -153,36 +149,33 @@ express.application.post = function(pathname, ...handlers) {
   }
   if (pathname === '/api/friends/request/:userId') {
     return originalPost.call(this, pathname, auth, async (req, res) => {
-      const other = req.params.userId;
+      const otherId = String(req.params.userId || '');
+      if (otherId === req.user.id) return res.status(400).json({ message: 'Invalid user.' });
       const pool = getPool();
       if (!pool) return res.status(503).json({ message: 'Database unavailable.' });
-      if (other === req.user.id) return res.status(400).json({ message: 'Invalid user.' });
       try {
-        const target = await pool.query('SELECT id FROM users WHERE id=$1::uuid', [other]);
-        if (!target.rowCount) return res.status(400).json({ message: 'Invalid user.' });
+        const users = await pool.query('SELECT id FROM users WHERE id=$1::uuid OR id=$2::uuid', [req.user.id, otherId]);
+        if (users.rowCount !== 2) return res.status(400).json({ message: 'Invalid user.' });
         const existing = await pool.query(
-          `SELECT id FROM friendships
+          `SELECT id,status,from_user_id,to_user_id FROM friendships
            WHERE (from_user_id=$1::uuid AND to_user_id=$2::uuid)
-              OR (from_user_id=$2::uuid AND to_user_id=$1::uuid)
-           LIMIT 1`,
-          [req.user.id, other]
+              OR (from_user_id=$2::uuid AND to_user_id=$1::uuid)`,
+          [req.user.id, otherId]
         );
         if (existing.rowCount) return res.status(409).json({ message: 'Friend request already exists.' });
-        const friendshipId = crypto.randomUUID();
         await pool.query(
-          `INSERT INTO friendships (id,from_user_id,to_user_id,status)
-           VALUES ($1::uuid,$2::uuid,$3::uuid,'pending')`,
-          [friendshipId, req.user.id, other]
+          'INSERT INTO friendships (from_user_id,to_user_id,status) VALUES ($1::uuid,$2::uuid,\'pending\')',
+          [req.user.id, otherId]
         );
-        // Temporary dual-write keeps the existing Socket.IO/server logic compatible.
         const db = loadJsonDb();
         db.friends ||= [];
-        db.friends.push({ id: friendshipId, from: req.user.id, to: other, status: 'pending' });
+        db.friends.push({ id: crypto.randomUUID(), from: req.user.id, to: otherId, status: 'pending' });
         saveJsonDb(db);
-        return res.status(201).json({ message: 'Friend request sent.' });
+        res.status(201).json({ message: 'Friend request sent.' });
       } catch (error) {
+        if (error.code === '23505') return res.status(409).json({ message: 'Friend request already exists.' });
         console.error('PostgreSQL friend request failed:', error.message);
-        return res.status(503).json({ message: 'Database unavailable.' });
+        res.status(503).json({ message: 'Database unavailable.' });
       }
     });
   }
@@ -194,17 +187,17 @@ express.application.post = function(pathname, ...handlers) {
         const result = await pool.query(
           `UPDATE friendships SET status='accepted'
            WHERE id=$1::uuid AND to_user_id=$2::uuid
-           RETURNING id`,
+           RETURNING id,from_user_id,to_user_id,status`,
           [req.params.requestId, req.user.id]
         );
         if (!result.rowCount) return res.status(404).json({ message: 'Request not found.' });
         const db = loadJsonDb();
-        const local = db.friends?.find(f => f.id === req.params.requestId && f.to === req.user.id);
+        const local = db.friends?.find(f => f.id === req.params.requestId);
         if (local) { local.status = 'accepted'; saveJsonDb(db); }
-        return res.json({ message: 'Accepted.' });
+        res.json({ message: 'Accepted.' });
       } catch (error) {
-        console.error('PostgreSQL friend acceptance failed:', error.message);
-        return res.status(503).json({ message: 'Database unavailable.' });
+        console.error('PostgreSQL friend accept failed:', error.message);
+        res.status(503).json({ message: 'Database unavailable.' });
       }
     });
   }
@@ -213,85 +206,43 @@ express.application.post = function(pathname, ...handlers) {
       const pool = getPool();
       if (!pool) return res.status(503).json({ message: 'Database unavailable.' });
       try {
-        const name = String(req.body?.name || 'Together Room').trim();
-        let code;
-        for (let attempt = 0; attempt < 10; attempt += 1) {
-          const candidate = roomCode();
-          const exists = await pool.query('SELECT 1 FROM rooms WHERE code=$1', [candidate]);
-          if (!exists.rowCount) { code = candidate; break; }
-        }
-        if (!code) return res.status(503).json({ message: 'Could not create a unique room code.' });
-        const roomId = crypto.randomUUID();
-        const createdAt = new Date().toISOString();
-        await pool.query('BEGIN');
-        try {
-          await pool.query(
-            `INSERT INTO rooms (id,code,name,owner_id,created_at)
-             VALUES ($1::uuid,$2,$3,$4::uuid,$5)`,
-            [roomId, code, name, req.user.id, createdAt]
-          );
-          await pool.query(
-            `INSERT INTO room_members (room_id,user_id) VALUES ($1::uuid,$2::uuid)`,
-            [roomId, req.user.id]
-          );
-          await pool.query('COMMIT');
-        } catch (error) {
-          await pool.query('ROLLBACK');
-          throw error;
-        }
-        const room = { id: roomId, code, name, owner: req.user.id, members: [req.user.id], createdAt };
-        // Temporary dual-write keeps WebRTC, Socket.IO and games compatible.
+        const room = { id: crypto.randomUUID(), code: crypto.randomBytes(5).toString('hex').toUpperCase(), name: String(req.body?.name || 'Together Room').trim(), owner: req.user.id, createdAt: new Date().toISOString() };
+        await pool.query(
+          'INSERT INTO rooms (id,code,name,owner_id,created_at) VALUES ($1::uuid,$2,$3,$4::uuid,$5::timestamptz)',
+          [room.id, room.code, room.name, room.owner, room.createdAt]
+        );
+        await pool.query('INSERT INTO room_members (room_id,user_id) VALUES ($1::uuid,$2::uuid)', [room.id, req.user.id]);
         const db = loadJsonDb();
         db.rooms ||= [];
-        db.rooms.push(room);
+        db.rooms.push({ ...room, members: [req.user.id] });
         saveJsonDb(db);
-        return res.status(201).json({ room });
+        res.status(201).json({ room: { ...room, members: [req.user.id] } });
       } catch (error) {
         console.error('PostgreSQL room creation failed:', error.message);
-        return res.status(503).json({ message: 'Database unavailable.' });
+        res.status(503).json({ message: 'Database unavailable.' });
       }
     });
   }
   if (pathname === '/api/rooms/:roomId/join') {
     return originalPost.call(this, pathname, auth, async (req, res) => {
-      const key = String(req.params.roomId || '').trim();
       const pool = getPool();
       if (!pool) return res.status(503).json({ message: 'Database unavailable.' });
       try {
-        const result = await pool.query(
-          `SELECT r.id,r.code,r.name,r.owner_id,r.created_at
-           FROM rooms r
-           WHERE r.id=$1::uuid OR UPPER(r.code)=UPPER($1)
-           LIMIT 1`,
-          [key]
-        );
+        const key = String(req.params.roomId || '').trim();
+        const result = await pool.query('SELECT id,code,name,owner_id,created_at FROM rooms WHERE id::text=$1 OR UPPER(code)=UPPER($1) LIMIT 1', [key]);
         const row = result.rows[0];
         if (!row) return res.status(404).json({ message: 'Room not found. Check the room code.' });
-        await pool.query(
-          `INSERT INTO room_members (room_id,user_id)
-           VALUES ($1::uuid,$2::uuid)
-           ON CONFLICT (room_id,user_id) DO NOTHING`,
-          [row.id, req.user.id]
-        );
-        const membersResult = await pool.query(
-          'SELECT user_id FROM room_members WHERE room_id=$1::uuid ORDER BY joined_at',
-          [row.id]
-        );
-        const room = {
-          id: row.id, code: row.code, name: row.name, owner: row.owner_id,
-          members: membersResult.rows.map(member => member.user_id),
-          createdAt: row.created_at
-        };
+        await pool.query('INSERT INTO room_members (room_id,user_id) VALUES ($1::uuid,$2::uuid) ON CONFLICT DO NOTHING', [row.id, req.user.id]);
+        const members = await pool.query('SELECT user_id::text FROM room_members WHERE room_id=$1::uuid ORDER BY joined_at', [row.id]);
+        const room = { id: row.id, code: row.code, name: row.name, owner: row.owner_id, createdAt: row.created_at, members: members.rows.map(m => m.user_id) };
         const db = loadJsonDb();
-        db.rooms ||= [];
-        const local = db.rooms.find(r => r.id === row.id);
+        const local = db.rooms?.find(r => r.id === row.id);
         if (local) local.members = room.members;
-        else db.rooms.push(room);
         saveJsonDb(db);
-        return res.json({ room });
+        res.json({ room });
       } catch (error) {
         console.error('PostgreSQL room join failed:', error.message);
-        return res.status(503).json({ message: 'Database unavailable.' });
+        res.status(503).json({ message: 'Database unavailable.' });
       }
     });
   }
@@ -339,26 +290,20 @@ express.application.get = function(pathname, ...handlers) {
         if (!pool) return res.status(503).json({ message: 'Database unavailable.' });
         const accepted = await pool.query(
           `SELECT u.id,u.name,u.email,u.bio
-           FROM friendships f
-           JOIN users u ON u.id = CASE WHEN f.from_user_id=$1::uuid THEN f.to_user_id ELSE f.from_user_id END
+           FROM friendships f JOIN users u ON u.id = CASE WHEN f.from_user_id=$1::uuid THEN f.to_user_id ELSE f.from_user_id END
            WHERE f.status='accepted' AND (f.from_user_id=$1::uuid OR f.to_user_id=$1::uuid)
-           ORDER BY u.name`,
-          [req.user.id]
+           ORDER BY u.name`, [req.user.id]
         );
         const requests = await pool.query(
           `SELECT f.id,u.id AS user_id,u.name,u.email,u.bio
            FROM friendships f JOIN users u ON u.id=f.from_user_id
            WHERE f.status='pending' AND f.to_user_id=$1::uuid
-           ORDER BY f.created_at DESC`,
-          [req.user.id]
+           ORDER BY f.created_at DESC`, [req.user.id]
         );
-        return res.json({
-          friends: accepted.rows.map(pub),
-          requests: requests.rows.map(row => ({ id: row.id, user: pub(row) }))
-        });
+        res.json({ friends: accepted.rows.map(pub), requests: requests.rows.map(r => ({ id: r.id, user: pub(r) })) });
       } catch (error) {
-        console.error('PostgreSQL friends fetch failed:', error.message);
-        return res.status(503).json({ message: 'Database unavailable.' });
+        console.error('PostgreSQL friends list failed:', error.message);
+        res.status(503).json({ message: 'Database unavailable.' });
       }
     });
   }
@@ -369,25 +314,38 @@ express.application.get = function(pathname, ...handlers) {
         if (!pool) return res.status(503).json({ message: 'Database unavailable.' });
         const result = await pool.query(
           `SELECT r.id,r.code,r.name,r.owner_id,r.created_at,
-                  COALESCE(array_agg(rm.user_id ORDER BY rm.joined_at) FILTER (WHERE rm.user_id IS NOT NULL), ARRAY[]::uuid[]) AS members
-           FROM rooms r LEFT JOIN room_members rm ON rm.room_id=r.id
-           WHERE EXISTS (SELECT 1 FROM room_members me WHERE me.room_id=r.id AND me.user_id=$1::uuid)
-           GROUP BY r.id ORDER BY r.created_at DESC`,
-          [req.user.id]
+                  COALESCE(array_agg(rm.user_id::text ORDER BY rm.joined_at) FILTER (WHERE rm.user_id IS NOT NULL), ARRAY[]::text[]) AS members
+           FROM rooms r JOIN room_members mine ON mine.room_id=r.id AND mine.user_id=$1::uuid
+           LEFT JOIN room_members rm ON rm.room_id=r.id
+           GROUP BY r.id ORDER BY r.created_at DESC`, [req.user.id]
         );
-        return res.json({ rooms: result.rows.map(row => ({
-          id: row.id, code: row.code, name: row.name, owner: row.owner_id,
-          members: row.members, createdAt: row.created_at
-        })) });
+        res.json({ rooms: result.rows.map(r => ({ id:r.id, code:r.code, name:r.name, owner:r.owner_id, createdAt:r.created_at, members:r.members })) });
       } catch (error) {
-        console.error('PostgreSQL rooms fetch failed:', error.message);
-        return res.status(503).json({ message: 'Database unavailable.' });
+        console.error('PostgreSQL rooms list failed:', error.message);
+        res.status(503).json({ message: 'Database unavailable.' });
       }
     });
   }
   if (pathname === '/api/rooms/:roomId/messages') {
-    // Messages remain on JSON until the next migration step.
-    return originalGet.call(this, pathname, ...handlers);
+    return originalGet.call(this, pathname, auth, async (req, res) => {
+      try {
+        const pool = getPool();
+        if (!pool) return res.status(503).json({ message: 'Database unavailable.' });
+        const room = await pool.query(
+          'SELECT 1 FROM room_members WHERE room_id=$1::uuid AND user_id=$2::uuid', [req.params.roomId, req.user.id]
+        );
+        if (!room.rowCount) return res.status(403).json({ message: 'You are not a member of this room.' });
+        const result = await pool.query(
+          `SELECT m.id,m.room_id,m.user_id,u.name AS user_name,m.text,m.created_at
+           FROM messages m JOIN users u ON u.id=m.user_id
+           WHERE m.room_id=$1::uuid ORDER BY m.created_at DESC LIMIT 100`, [req.params.roomId]
+        );
+        res.json({ messages: result.rows.reverse().map(m => ({ id:m.id, roomId:m.room_id, userId:m.user_id, userName:m.user_name, text:m.text, createdAt:m.created_at })) });
+      } catch (error) {
+        console.error('PostgreSQL room messages failed:', error.message);
+        res.status(503).json({ message: 'Database unavailable.' });
+      }
+    });
   }
   return originalGet.call(this, pathname, ...handlers);
 };
