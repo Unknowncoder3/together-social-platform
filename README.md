@@ -97,7 +97,7 @@ OPENAI_MODEL=gpt-5.6-luna
 OPENAI_EMBEDDING_MODEL=text-embedding-3-small
 ```
 
-Keep the API key only in `.env` or your deployment provider's secret/environment settings. Never put it in React code or commit it to GitHub. OpenAI's current API documentation recommends using an environment variable for the key and supports the Responses API for text generation. citeturn4search6turn4search0
+Keep the API key only in `.env` or your deployment provider's secret/environment settings. Never put it in React code or commit it to GitHub.
 
 If `OPENAI_API_KEY` is missing, the AI service still starts, but AI generation endpoints return a configuration error instead of exposing or inventing a key.
 
