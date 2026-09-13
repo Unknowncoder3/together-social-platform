@@ -4,3 +4,5 @@ node_modules/
 data/db.json
 data/experience-sessions.json
 ml/models/*.joblib
+ml/models/preference_profiles.json
+ml/dataset/feedback.csv
