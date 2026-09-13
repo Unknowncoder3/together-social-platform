@@ -1,6 +1,6 @@
 import express from 'express';
 import http from 'http';
-import {Server} from 'socket.io';
+import { Server } from 'socket.io';
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
@@ -58,7 +58,7 @@ io.on('connection',socket=>{
  socket.on('couple:join',()=>{const r=relFor(uid);if(!r)return socket.emit('couple:error',{message:'No partner connection.'});socket.data.coupleRelationshipId=r.id;socket.join(roomIdFor(r));const peers=[...io.sockets.adapter.rooms.get(roomIdFor(r))||[]].filter(id=>id!==socket.id).map(id=>io.sockets.sockets.get(id)?.user?.id).filter(Boolean);socket.emit('couple:joined',{roomId:roomIdFor(r),peers,occupancy:peers.length+1,game:gameSessions.get(r.id)||null});socket.to(roomIdFor(r)).emit('couple:peer-joined',{userId:uid});});
  socket.on('couple:signal',({target,data})=>{const rid=socket.data.coupleRelationshipId;if(!rid||!target)return;for(const[,peer]of io.sockets.sockets){if(peer.user?.id===target&&peer.data.coupleRelationshipId===rid){peer.emit('couple:signal',{from:uid,data});return}}});
  socket.on('couple:chat',payload=>{const rid=socket.data.coupleRelationshipId;if(!rid)return;const rs=load(),r=rs.find(x=>x.id===rid);if(!r)return;const m={id:id(),userId:uid,userName:userById(uid)?.name||'User',text:String(payload?.text||'').trim(),createdAt:new Date().toISOString()};if(!m.text)return;r.messages=r.messages||[];r.messages.push(m);save(rs);io.to(roomIdFor(r)).emit('couple:chat',m)});
- socket.on('couple:mood',payload=>{const rid=socket.data.coupleRelationshipId;if(!rid)return;io.to(roomIdFor(rid)).emit('couple:mood',{userId:uid,level:Number(payload?.level)||1})});
+ socket.on('couple:mood',payload=>{const rid=socket.data.coupleRelationshipId;if(!rid)return;io.to(roomIdFor({id:rid})).emit('couple:mood',{userId:uid,level:Number(payload?.level)||1})});
  socket.on('couple:game',payload=>{const rid=socket.data.coupleRelationshipId;if(!rid)return;const next=payload?.clear?null:{...payload,updatedAt:Date.now()};if(next)gameSessions.set(rid,next);else gameSessions.delete(rid);io.to(roomIdFor({id:rid})).emit('couple:game',next)});
  socket.on('disconnect',()=>{});
 });
