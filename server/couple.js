@@ -22,6 +22,7 @@ const save=()=>fs.writeFileSync(couplesFile,JSON.stringify(store,null,2));
 const id=()=>crypto.randomUUID();
 const pub=u=>u?({id:u.id,name:u.name,email:u.email,bio:u.bio||''}):null;
 const auth=(req,res,next)=>{try{req.user=jwt.verify((req.headers.authorization||'').replace('Bearer ','').trim(),SECRET);next()}catch{res.status(401).json({message:'Authentication required'})}};
+app.use((req,res,next)=>{res.setHeader('Access-Control-Allow-Origin','*');res.setHeader('Access-Control-Allow-Headers','Content-Type, Authorization');res.setHeader('Access-Control-Allow-Methods','GET,POST,PUT,PATCH,DELETE,OPTIONS');if(req.method==='OPTIONS')return res.sendStatus(204);next()});
 const users=()=>readUsers();
 const relationshipFor=uid=>store.relationships.find(r=>r.userA===uid||r.userB===uid)||null;
 const pairFor=(uid,rid)=>{const r=store.relationships.find(x=>x.id===rid);return r&&(r.userA===uid||r.userB===uid)?r:null};
