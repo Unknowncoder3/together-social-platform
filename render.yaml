@@ -36,8 +36,9 @@ services:
       - key: JWT_SECRET
         sync: false
 
-  - type: static
+  - type: web
     name: together-client
+    runtime: static
     buildCommand: npm install && npm run build
     staticPublishPath: ./client/dist
     envVars:
