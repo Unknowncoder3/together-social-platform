@@ -1,0 +1,10 @@
+node_modules
+.git
+.github
+.env
+*.log
+ml/models
+ml/__pycache__
+ml/dataset/experience_scenarios.csv
+data/db.json
+data/couples.json
