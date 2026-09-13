@@ -32,6 +32,34 @@ const productionEndpointRewrite = {
       "socketIO(import.meta.env.VITE_COUPLE_SOCKET_URL || 'http://localhost:5002'"
     );
 
+    // Production WebRTC hardening for the main room. Browser-to-browser
+    // ICE candidates can arrive before the remote SDP is installed. Queue
+    // those candidates on the peer and flush them after setRemoteDescription.
+    out = out.replace(
+      "urls: 'stun:stun.l.google.com:19302'",
+      "urls: ['stun:stun.l.google.com:19302','stun:stun.cloudflare.com:3478']"
+    );
+    out = out.replace(
+      "urls:\n            'stun:stun.l.google.com:19302'",
+      "urls:\n            ['stun:stun.l.google.com:19302','stun:stun.cloudflare.com:3478']"
+    );
+    out = out.replace(
+      "pcs.current[uid] = pc;",
+      "pcs.current[uid] = pc;\n    pc.__pendingIce = [];"
+    );
+    out = out.replace(
+      "await pc.setRemoteDescription(\n          data\n        );\n\n        const a =",
+      "await pc.setRemoteDescription(\n          data\n        );\n        for (const candidate of pc.__pendingIce.splice(0)) {\n          await pc.addIceCandidate(candidate).catch(() => {});\n        }\n\n        const a ="
+    );
+    out = out.replace(
+      "await pc.setRemoteDescription(\n          data\n        );\n      } else if (\n        data.type === 'candidate'",
+      "await pc.setRemoteDescription(\n          data\n        );\n        for (const candidate of pc.__pendingIce.splice(0)) {\n          await pc.addIceCandidate(candidate).catch(() => {});\n        }\n      } else if (\n        data.type === 'candidate'"
+    );
+    out = out.replace(
+      "try {\n          await pc.addIceCandidate(\n            data.candidate\n          );\n        } catch {}",
+      "if (pc.remoteDescription) {\n          await pc.addIceCandidate(data.candidate).catch(() => {});\n        } else {\n          pc.__pendingIce.push(data.candidate);\n        }"
+    );
+
     return out === code ? null : { code: out, map: null };
   }
 };
