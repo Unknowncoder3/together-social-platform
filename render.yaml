@@ -1,0 +1,46 @@
+services:
+  - type: web
+    name: together-api
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm run start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 5001
+      - key: JWT_SECRET
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+
+  - type: web
+    name: together-couple
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm run couple-server
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 5002
+      - key: JWT_SECRET
+        sync: false
+
+  - type: web
+    name: together-ml
+    runtime: python
+    plan: free
+    buildCommand: pip install -r ml/requirements.txt && python ml/dataset/generate_dataset.py && python ml/training/train_scene_model.py && python ml/training/train_activity_model.py && python ml/training/build_question_engine.py
+    startCommand: python -m server.ml_service
+    envVars:
+      - key: PORT
+        value: 5003
+
+  - type: web
+    name: together-client
+    runtime: static
+    buildCommand: npm install && npm run build
+    staticPublishPath: ./client/dist
