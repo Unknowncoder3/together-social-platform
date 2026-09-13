@@ -9,7 +9,7 @@ import jwt from 'jsonwebtoken';
 const app=express();
 const server=http.createServer(app);
 const io=new Server(server,{cors:{origin:'*'}});
-const PORT=process.env.COUPLE_PORT||5002;
+const PORT = Number(process.env.PORT || process.env.COUPLE_PORT || 5002);
 const SECRET=process.env.JWT_SECRET||'together-dev-secret';
 const dataDir=path.resolve('data');
 const usersFile=path.join(dataDir,'db.json');

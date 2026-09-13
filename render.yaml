@@ -8,8 +8,6 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
-      - key: PORT
-        value: 5001
       - key: JWT_SECRET
         sync: false
       - key: DATABASE_URL
@@ -24,8 +22,6 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
-      - key: PORT
-        value: 5002
       - key: JWT_SECRET
         sync: false
 
@@ -37,8 +33,6 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
-      - key: EXPERIENCE_AI_PORT
-        value: 5003
       - key: JWT_SECRET
         sync: false
 

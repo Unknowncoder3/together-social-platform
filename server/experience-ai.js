@@ -9,7 +9,9 @@ import { spawn } from 'child_process';
 // The service is now fully local: Python loads the trained Together models and
 // returns ranked decisions. No OpenAI, Groq, Gemini, or other external AI API.
 const app = express();
-const PORT = Number(process.env.EXPERIENCE_AI_PORT || 5003);
+const PORT = Number(
+  process.env.PORT || process.env.EXPERIENCE_AI_PORT || 5003
+);
 const SECRET = process.env.JWT_SECRET || 'together-dev-secret';
 const PYTHON = process.env.PYTHON_BIN || 'python3';
 const ROOT = path.resolve('.');
