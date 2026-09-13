@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "concurrently \"npm run server\" \"npm run couple-server\" \"npm run ai-server\" \"npm run client\"",
-    "server": "node server/pg-auth-bootstrap.js",
+    "server": "node server/runtime.js",
     "couple-server": "node server/couple.js",
     "ai-server": "node server/experience-ai.js",
     "client": "vite --config client/vite.config.js",
@@ -20,7 +20,7 @@
     "ml:record-feedback": "python3 ml/record_feedback.py",
     "infra:up": "docker compose up -d postgres redis",
     "infra:down": "docker compose down",
-    "start": "node server/pg-auth-bootstrap.js"
+    "start": "node server/runtime.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",
