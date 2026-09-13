@@ -1,10 +1,14 @@
 import express from 'express';
+import http from 'http';
+import {Server} from 'socket.io';
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 
 const app=express();
+const server=http.createServer(app);
+const io=new Server(server,{cors:{origin:'*'}});
 const PORT=process.env.COUPLE_PORT||5002;
 const SECRET=process.env.JWT_SECRET||'together-dev-secret';
 const dataDir=path.resolve('data');
@@ -12,21 +16,41 @@ const usersFile=path.join(dataDir,'db.json');
 const couplesFile=path.join(dataDir,'couples.json');
 fs.mkdirSync(dataDir,{recursive:true});
 const readUsers=()=>{try{return JSON.parse(fs.readFileSync(usersFile,'utf8')).users||[]}catch{return[]}};
-let store=fs.existsSync(couplesFile)?JSON.parse(fs.readFileSync(couplesFile,'utf8')):{relationships:[],requests:[]};
-store.relationships||=[];store.requests||=[];
+let store=fs.existsSync(couplesFile)?JSON.parse(fs.readFileSync(couplesFile,'utf8')):{relationships:[],requests:[],dates:[],memories:[],moments:[],moods:[],rooms:[],messages:[]};
+for(const k of ['relationships','requests','dates','memories','moments','moods','rooms','messages'])store[k]??=[];
 const save=()=>fs.writeFileSync(couplesFile,JSON.stringify(store,null,2));
 const id=()=>crypto.randomUUID();
 const pub=u=>u?({id:u.id,name:u.name,email:u.email,bio:u.bio||''}):null;
 const auth=(req,res,next)=>{try{req.user=jwt.verify((req.headers.authorization||'').replace('Bearer ','').trim(),SECRET);next()}catch{res.status(401).json({message:'Authentication required'})}};
 const users=()=>readUsers();
-const pairHasUser=r=>r.userA===r.userB;
 const relationshipFor=uid=>store.relationships.find(r=>r.userA===uid||r.userB===uid)||null;
-const requestBetween=(a,b)=>store.requests.find(r=>((r.from===a&&r.to===b)||(r.from===b&&r.to===a))&&r.status==='pending');
-const statusFor=uid=>{const rel=relationshipFor(uid);const incoming=store.requests.filter(r=>r.to===uid&&r.status==='pending').map(r=>({...r,user:pub(users().find(u=>u.id===r.from))}));const outgoing=store.requests.filter(r=>r.from===uid&&r.status==='pending').map(r=>({...r,user:pub(users().find(u=>u.id===r.to))}));return{relationship:rel?{...rel,partner:pub(users().find(u=>u.id===(rel.userA===uid?rel.userB:rel.userA)))}:null,incoming,outgoing}};
+const partnerId=uid=>{const r=relationshipFor(uid);return r?(r.userA===uid?r.userB:r.userA):null};
+const pairFor=(uid,rid)=>{const r=store.relationships.find(x=>x.id===rid);return r&&(r.userA===uid||r.userB===uid)?r:null};
+const statusFor=uid=>{const rel=relationshipFor(uid);const incoming=store.requests.filter(r=>r.to===uid&&r.status==='pending').map(r=>({...r,user:pub(users().find(u=>u.id===r.from))}));const outgoing=store.requests.filter(r=>r.from===uid&&r.status==='pending').map(r=>({...r,user:pub(users().find(u=>u.id===r.to))}));const dates=rel?store.dates.filter(d=>d.relationshipId===rel.id).sort((a,b)=>a.date.localeCompare(b.date)):[];const memories=rel?store.memories.filter(m=>m.relationshipId===rel.id).sort((a,b)=>b.createdAt.localeCompare(a.createdAt)):[];const moments=rel?store.moments.filter(m=>m.relationshipId===rel.id).sort((a,b)=>b.createdAt.localeCompare(a.createdAt)).slice(0,30):[];const mood=rel?(store.moods.find(m=>m.relationshipId===rel.id)||null):null;const room=rel?(store.rooms.find(x=>x.relationshipId===rel.id)||null):null;return{relationship:rel?{...rel,partner:pub(users().find(u=>u.id===(rel.userA===uid?rel.userB:rel.userA)))}:null,incoming,outgoing,dates,memories,moments,mood,room}};
+const requireRel=(req,res)=>{const r=relationshipFor(req.user.id);if(!r){res.status(409).json({message:'Connect with a partner first.'});return null}return r};
+
 app.use(express.json());
 app.get('/api/couple',auth,(req,res)=>res.json(statusFor(req.user.id)));
-app.post('/api/couple/request/:userId',auth,(req,res)=>{const me=req.user.id,other=req.params.userId;if(me===other)return res.status(400).json({message:'You cannot choose yourself as your partner.'});const all=users();if(!all.some(u=>u.id===other))return res.status(404).json({message:'User not found.'});if(relationshipFor(me))return res.status(409).json({message:'You already have a partner. Disconnect first before choosing another.'});if(relationshipFor(other))return res.status(409).json({message:'That person already has a partner.'});if(requestBetween(me,other))return res.status(409).json({message:'A couple request already exists between you.'});store.requests.push({id:id(),from:me,to:other,status:'pending',createdAt:new Date().toISOString()});save();res.status(201).json({message:'Couple request sent.',...statusFor(me)})});
+app.post('/api/couple/request/:userId',auth,(req,res)=>{const me=req.user.id,other=req.params.userId;if(me===other)return res.status(400).json({message:'You cannot choose yourself as your partner.'});const all=users();if(!all.some(u=>u.id===other))return res.status(404).json({message:'User not found.'});if(relationshipFor(me))return res.status(409).json({message:'You already have a partner. Disconnect first before choosing another.'});if(relationshipFor(other))return res.status(409).json({message:'That person already has a partner.'});if(store.requests.some(r=>r.status==='pending'&&((r.from===me&&r.to===other)||(r.from===other&&r.to===me))))return res.status(409).json({message:'A couple request already exists between you.'});store.requests.push({id:id(),from:me,to:other,status:'pending',createdAt:new Date().toISOString()});save();res.status(201).json({message:'Couple request sent.',...statusFor(me)})});
 app.post('/api/couple/request/:requestId/accept',auth,(req,res)=>{const me=req.user.id,rq=store.requests.find(r=>r.id===req.params.requestId&&r.to===me&&r.status==='pending');if(!rq)return res.status(404).json({message:'Couple request not found.'});if(relationshipFor(me)||relationshipFor(rq.from))return res.status(409).json({message:'One of you already has a partner.'});rq.status='accepted';store.requests=store.requests.filter(r=>r.id===rq.id||!(r.status==='pending'&&(r.from===me||r.to===me||r.from===rq.from||r.to===rq.from)));store.relationships.push({id:id(),userA:rq.from,userB:rq.to,since:new Date().toISOString(),createdAt:new Date().toISOString()});save();res.json({message:'❤️ You are now connected as partners.',...statusFor(me)})});
 app.post('/api/couple/request/:requestId/reject',auth,(req,res)=>{const rq=store.requests.find(r=>r.id===req.params.requestId&&r.to===req.user.id&&r.status==='pending');if(!rq)return res.status(404).json({message:'Couple request not found.'});rq.status='rejected';save();res.json({message:'Request rejected.',...statusFor(req.user.id)})});
-app.delete('/api/couple',auth,(req,res)=>{const uid=req.user.id;const rel=relationshipFor(uid);if(!rel)return res.status(404).json({message:'You are not currently connected to a partner.'});store.relationships=store.relationships.filter(r=>r.id!==rel.id);store.requests=store.requests.filter(r=>r.from!==uid&&r.to!==uid);save();res.json({message:'Couple connection ended.',...statusFor(uid)})});
-app.listen(PORT,()=>console.log(`Together couple service: http://localhost:${PORT}`));
+app.delete('/api/couple',auth,(req,res)=>{const uid=req.user.id,rel=relationshipFor(uid);if(!rel)return res.status(404).json({message:'You are not currently connected to a partner.'});store.relationships=store.relationships.filter(r=>r.id!==rel.id);store.requests=store.requests.filter(r=>r.from!==uid&&r.to!==uid);for(const k of ['dates','memories','moments','moods','rooms','messages'])store[k]=store[k].filter(x=>x.relationshipId!==rel.id);save();res.json({message:'Couple connection ended.',...statusFor(uid)})});
+
+app.post('/api/couple/room',auth,(req,res)=>{const rel=requireRel(req,res);if(!rel)return;let room=store.rooms.find(x=>x.relationshipId===rel.id);if(!room){room={id:id(),relationshipId:rel.id,createdAt:new Date().toISOString()};store.rooms.push(room);save()}res.json({room})});
+app.get('/api/couple/messages',auth,(req,res)=>{const rel=requireRel(req,res);if(!rel)return;res.json({messages:store.messages.filter(m=>m.relationshipId===rel.id).slice(-100)})});
+
+app.post('/api/couple/dates',auth,(req,res)=>{const rel=requireRel(req,res);if(!rel)return;const title=String(req.body.title||'').trim(),date=String(req.body.date||'').trim(),type=String(req.body.type||'Custom').trim();if(!title||!/^\d{4}-\d{2}-\d{2}$/.test(date))return res.status(400).json({message:'Title and a valid date are required.'});const item={id:id(),relationshipId:rel.id,title,date,type,notes:String(req.body.notes||'').trim(),createdAt:new Date().toISOString()};store.dates.push(item);save();res.status(201).json(item)});
+app.delete('/api/couple/dates/:id',auth,(req,res)=>{const rel=requireRel(req,res);if(!rel)return;const before=store.dates.length;store.dates=store.dates.filter(x=>!(x.id===req.params.id&&x.relationshipId===rel.id));if(before===store.dates.length)return res.status(404).json({message:'Date not found.'});save();res.json({message:'Date removed.'})});
+
+app.post('/api/couple/memories',auth,(req,res)=>{const rel=requireRel(req,res);if(!rel)return;const title=String(req.body.title||'').trim();if(!title)return res.status(400).json({message:'Memory title is required.'});const item={id:id(),relationshipId:rel.id,title,description:String(req.body.description||'').trim(),date:String(req.body.date||new Date().toISOString().slice(0,10)),createdAt:new Date().toISOString()};store.memories.push(item);save();res.status(201).json(item)});
+app.delete('/api/couple/memories/:id',auth,(req,res)=>{const rel=requireRel(req,res);if(!rel)return;const before=store.memories.length;store.memories=store.memories.filter(x=>!(x.id===req.params.id&&x.relationshipId===rel.id));if(before===store.memories.length)return res.status(404).json({message:'Memory not found.'});save();res.json({message:'Memory deleted.'})});
+
+app.post('/api/couple/moments',auth,(req,res)=>{const rel=requireRel(req,res);if(!rel)return;const text=String(req.body.text||'').trim(),kind=String(req.body.kind||'Little Moment').trim();if(!text)return res.status(400).json({message:'Moment text is required.'});const item={id:id(),relationshipId:rel.id,text,kind,createdAt:new Date().toISOString(),userId:req.user.id};store.moments.push(item);save();res.status(201).json(item)});
+app.delete('/api/couple/moments/:id',auth,(req,res)=>{const rel=requireRel(req,res);if(!rel)return;store.moments=store.moments.filter(x=>!(x.id===req.params.id&&x.relationshipId===rel.id));save();res.json({message:'Moment deleted.'})});
+
+app.put('/api/couple/mood',auth,(req,res)=>{const rel=requireRel(req,res);if(!rel)return;const mood=String(req.body.mood||'Happy').trim(),intensity=Math.max(1,Math.min(5,Number(req.body.intensity)||1));let item=store.moods.find(x=>x.relationshipId===rel.id);if(!item){item={id:id(),relationshipId:rel.id};store.moods.push(item)}item.mood=mood;item.intensity=intensity;item.updatedAt=new Date().toISOString();item.userId=req.user.id;save();io.to(`couple:${rel.id}`).emit('couple:mood',item);res.json(item)});
+
+io.use((socket,next)=>{try{socket.user=jwt.verify(socket.handshake.auth?.token||'',SECRET);next()}catch{next(new Error('Unauthorized'))}});
+io.on('connection',socket=>{socket.on('couple:join',()=>{const rel=relationshipFor(socket.user.id);if(!rel)return socket.emit('couple:error',{message:'No active couple connection.'});socket.join(`couple:${rel.id}`);socket.emit('couple:joined',{roomId:store.rooms.find(r=>r.relationshipId===rel.id)?.id||null});});socket.on('couple:signal',({relationshipId,target,data})=>{const rel=pairFor(socket.user.id,relationshipId);if(!rel)return;if(target){for(const[,s]of io.sockets.sockets)if(s.user?.id===target){s.emit('couple:signal',{from:socket.user.id,data});return}}socket.to(`couple:${rel.id}`).emit('couple:signal',{from:socket.user.id,data})});socket.on('couple:chat',({relationshipId,text})=>{const rel=pairFor(socket.user.id,relationshipId);if(!rel||!String(text||'').trim())return;const m={id:id(),relationshipId,userId:socket.user.id,userName:users().find(u=>u.id===socket.user.id)?.name||'Partner',text:String(text).trim(),createdAt:new Date().toISOString()};store.messages.push(m);save();io.to(`couple:${rel.id}`).emit('couple:chat',m)});socket.on('couple:moment',({relationshipId,text,kind})=>{const rel=pairFor(socket.user.id,relationshipId);if(!rel||!String(text||'').trim())return;const m={id:id(),relationshipId,text:String(text).trim(),kind:String(kind||'Little Moment'),createdAt:new Date().toISOString(),userId:socket.user.id};store.moments.push(m);save();io.to(`couple:${rel.id}`).emit('couple:moment',m)});});
+
+server.listen(PORT,()=>console.log(`Together couple service: http://localhost:${PORT}`));
