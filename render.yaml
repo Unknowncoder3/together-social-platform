@@ -36,29 +36,18 @@ services:
       - key: JWT_SECRET
         sync: false
 
-  - type: web
+  - type: static
     name: together-client
-    runtime: static
     buildCommand: npm install && npm run build
     staticPublishPath: ./client/dist
-    routes:
-      - type: rewrite
-        source: /api/couple
-        destination: https://together-couple.onrender.com/api/couple
-      - type: rewrite
-        source: /api/couple/*
-        destination: https://together-couple.onrender.com/api/couple/*
-      - type: rewrite
-        source: /api/ai/*
-        destination: https://together-ml.onrender.com/api/ai/*
-      - type: rewrite
-        source: /api/*
-        destination: https://together-api.onrender.com/api/*
-      - type: rewrite
-        source: /*
-        destination: /index.html
     envVars:
+      - key: VITE_API_URL
+        value: https://together-api-kg8o.onrender.com/api
       - key: VITE_API_ORIGIN
-        value: https://together-api.onrender.com
+        value: https://together-api-kg8o.onrender.com
+      - key: VITE_COUPLE_URL
+        value: https://together-couple.onrender.com
+      - key: VITE_AI_URL
+        value: https://together-ml.onrender.com
       - key: VITE_COUPLE_SOCKET_URL
         value: https://together-couple.onrender.com
