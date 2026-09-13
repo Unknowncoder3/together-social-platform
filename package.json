@@ -9,6 +9,7 @@
     "ai-server": "node server/experience-ai.js",
     "client": "vite --config client/vite.config.js",
     "build": "vite build --config client/vite.config.js",
+    "db:check": "node --env-file=.env server/db-check.js",
     "ml:generate": "python3 ml/dataset/generate_dataset.py",
     "ml:train-scene": "python3 ml/training/train_scene_model.py",
     "ml:predict-scene": "python3 ml/predict_scene.py",
