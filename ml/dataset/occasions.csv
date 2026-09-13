@@ -1,0 +1,16 @@
+occasion_id,occasion_name,default_intensity,description
+1,normal_day,medium,Regular shared time with no special occasion
+2,first_date,light,Getting to know each other for the first time
+3,date_night,high,Intentional romantic time together
+4,anniversary,high,Celebrating the relationship and shared history
+5,birthday,high,Celebrating one partner's birthday
+6,valentines,high,Romantic celebration
+7,long_distance,moderate,Connecting when physically apart
+8,reunion,high,Reconnecting after time apart
+9,weekend,medium,Relaxed extended shared time
+10,late_night,moderate,Quiet or playful late-night session
+11,celebration,high,Achievement or personal milestone
+12,rough_day,low,Supportive connection after a difficult day
+13,special_memory,high,Revisiting or celebrating a meaningful memory
+14,holiday,high,Shared holiday or festive occasion
+15,just_because,medium,Spontaneous connection without a reason
