@@ -1,0 +1,61 @@
+{
+  "relationships": [
+    {
+      "id": "79e51cbb-3702-4989-9add-dfb5500e43ab",
+      "userA": "2aaccf6e-6906-460e-a793-9b58647eb348",
+      "userB": "448ac11c-905b-47e5-8196-19a7994a5064",
+      "since": "2026-09-13T05:48:37.228Z",
+      "createdAt": "2026-09-13T05:48:37.228Z",
+      "bonding": {
+        "level": 1,
+        "answers": {
+          "448ac11c-905b-47e5-8196-19a7994a5064": {
+            "firstMeet": "17th december 2022 at aunty's cafe",
+            "togetherLength": "from march 17 to till almost 4 years",
+            "favoriteMemory": "every memories are favourite but mainly the digha diaries",
+            "adoreMost": "her smile , her care for me, her love, her body, her soul everything",
+            "futureMoment": "we would like to get marry and stay together"
+          },
+          "2aaccf6e-6906-460e-a793-9b58647eb348": {
+            "firstMeet": "17th december 2022 at aunty's cafe",
+            "togetherLength": "almost 4years",
+            "favoriteMemory": "digha diaries",
+            "adoreMost": "his attitude, passion , love for me, care, everything",
+            "futureMoment": "marry together"
+          }
+        },
+        "updatedAt": "2026-09-13T06:56:52.835Z"
+      }
+    }
+  ],
+  "requests": [
+    {
+      "id": "dc013183-d3f2-4973-8be3-a57558ad2cc8",
+      "from": "2aaccf6e-6906-460e-a793-9b58647eb348",
+      "to": "448ac11c-905b-47e5-8196-19a7994a5064",
+      "status": "accepted",
+      "createdAt": "2026-09-13T05:48:21.210Z"
+    }
+  ],
+  "dates": [],
+  "memories": [],
+  "moments": [],
+  "moods": [
+    {
+      "id": "4dd48f01-5b88-4731-a2f2-1889231a38a1",
+      "relationshipId": "79e51cbb-3702-4989-9add-dfb5500e43ab",
+      "mood": "Passionate",
+      "intensity": 5,
+      "updatedAt": "2026-09-13T06:57:19.797Z",
+      "userId": "448ac11c-905b-47e5-8196-19a7994a5064"
+    }
+  ],
+  "rooms": [
+    {
+      "id": "5c0647d7-eb2b-4ed1-89e5-3bb1817c604d",
+      "relationshipId": "79e51cbb-3702-4989-9add-dfb5500e43ab",
+      "createdAt": "2026-09-13T05:57:05.828Z"
+    }
+  ],
+  "messages": []
+}

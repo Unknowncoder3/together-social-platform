@@ -8,7 +8,7 @@ services:
       POSTGRES_USER: together
       POSTGRES_PASSWORD: together_local_password
     ports:
-      - "${POSTGRES_HOST_PORT:-5432}:5432"
+    - "5433:5432"
     volumes:
       - together-postgres-data:/var/lib/postgresql/data
       - ./infra/schema.sql:/docker-entrypoint-initdb.d/001-schema.sql:ro

@@ -1,0 +1,126 @@
+{
+  "model": "RandomForestClassifier",
+  "purpose": "activity_recommendation",
+  "dataset_rows": 5000,
+  "test_rows": 1000,
+  "features": [
+    "mood",
+    "energy_level",
+    "time_available",
+    "time_of_day",
+    "occasion",
+    "relationship_stage",
+    "bonding_level",
+    "intimacy_level",
+    "couple_only",
+    "consent_required"
+  ],
+  "activities": [
+    {
+      "id": 1,
+      "name": "Rapid Fire"
+    },
+    {
+      "id": 2,
+      "name": "This or That"
+    },
+    {
+      "id": 3,
+      "name": "Trivia Battle"
+    },
+    {
+      "id": 4,
+      "name": "Tic Tac Toe"
+    },
+    {
+      "id": 5,
+      "name": "Connect Four"
+    },
+    {
+      "id": 6,
+      "name": "Scribble"
+    },
+    {
+      "id": 7,
+      "name": "Find the Spy"
+    },
+    {
+      "id": 8,
+      "name": "Two Truths and a Lie"
+    },
+    {
+      "id": 9,
+      "name": "How Well Do You Know Me"
+    },
+    {
+      "id": 10,
+      "name": "Memory Lane"
+    },
+    {
+      "id": 11,
+      "name": "Relationship Timeline"
+    },
+    {
+      "id": 12,
+      "name": "Deep Questions"
+    },
+    {
+      "id": 13,
+      "name": "Future Plans"
+    },
+    {
+      "id": 14,
+      "name": "Date Planner"
+    },
+    {
+      "id": 15,
+      "name": "Music Mood"
+    },
+    {
+      "id": 16,
+      "name": "Watch Together"
+    },
+    {
+      "id": 17,
+      "name": "Couple Challenge"
+    },
+    {
+      "id": 18,
+      "name": "Truth or Dare"
+    },
+    {
+      "id": 19,
+      "name": "Flirty This or That"
+    },
+    {
+      "id": 20,
+      "name": "Romantic Q&A"
+    },
+    {
+      "id": 21,
+      "name": "Compliment Challenge"
+    },
+    {
+      "id": 22,
+      "name": "Little Moments"
+    },
+    {
+      "id": 23,
+      "name": "Cozy Conversation"
+    },
+    {
+      "id": 24,
+      "name": "Date Night Roulette"
+    },
+    {
+      "id": 25,
+      "name": "Playful Teasing Cards"
+    }
+  ],
+  "top1_accuracy": 0.225,
+  "top3_accuracy": 0.542,
+  "top5_accuracy": 0.781,
+  "macro_f1": 0.226668,
+  "weighted_f1": 0.211795,
+  "random_state": 42
+}

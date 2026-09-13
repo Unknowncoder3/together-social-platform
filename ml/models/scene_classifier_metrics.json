@@ -1,0 +1,36 @@
+{
+  "model": "RandomForestClassifier",
+  "dataset_rows": 5000,
+  "test_rows": 1000,
+  "features": [
+    "mood",
+    "energy_level",
+    "time_available",
+    "time_of_day",
+    "occasion",
+    "relationship_stage",
+    "bonding_level",
+    "intimacy_level",
+    "couple_only",
+    "consent_required"
+  ],
+  "scenes": [
+    "calm_connection",
+    "celebration_fun",
+    "deep_connection",
+    "gentle_connection",
+    "getting_to_know_each_other",
+    "high_energy_fun",
+    "intimate_high_intensity",
+    "memory_connection",
+    "playful_social",
+    "positive_social",
+    "romantic_celebration",
+    "romantic_connection",
+    "sensual_connection"
+  ],
+  "accuracy": 0.93,
+  "macro_f1": 0.900396,
+  "weighted_f1": 0.931524,
+  "random_state": 42
+}
