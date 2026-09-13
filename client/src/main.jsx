@@ -131,7 +131,7 @@ function App(){
   if(room&&s)return <Room room={room} user={u} s={s} onLeave={()=>setRoom(null)}/>;
 
   const create=async()=>{try{setErr('');const d=await api('/rooms',{method:'POST',body:JSON.stringify({name:name||'Together Room'})});setRooms(x=>[...x,d.room]);setName('');setRoom(d.room)}catch(x){setErr(x.message)}};
-  const join=async()=>{if(!joinCode.trim())return;try{setErr('');const d=await api('/rooms/'+encodeURIComponent(joinCode.trim()),{method:'POST'});setRooms(x=>x.some(r=>r.id===d.room.id)?x:x.concat(d.room));setJoinCode('');setRoom(d.room)}catch(x){setErr(x.message)}};
+  const join=async()=>{if(!joinCode.trim())return;try{setErr('');const d=await api('/rooms/'+encodeURIComponent(joinCode.trim())+'/join',{method:'POST'});setRooms(x=>x.some(r=>r.id===d.room.id)?x:x.concat(d.room));setJoinCode('');setRoom(d.room)}catch(x){setErr(x.message)}};
   const search=async()=>{try{setFound(await api('/users/search?q='+encodeURIComponent(q)))}catch(x){setErr(x.message)}};
   const add=async id=>{try{await api('/friends/request/'+id,{method:'POST'});setErr('Friend request sent.')}catch(x){setErr(x.message)}};
   const enter=async r=>{try{setErr('');const d=await api('/rooms/'+r.id+'/join',{method:'POST'});setRoom(d.room)}catch(x){setErr(x.message)}};
