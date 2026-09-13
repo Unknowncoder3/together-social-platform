@@ -21,7 +21,7 @@ Together is a portfolio-grade real-time social platform for friends and couples.
 - Screen sharing
 - Join/leave notifications
 
-### Phase 3 — Games + AI Questions
+### Phase 3 — Games + Questions
 - Tic-Tac-Toe
 - Connect Four
 - Trivia Battle
@@ -42,71 +42,102 @@ Together is a portfolio-grade real-time social platform for friends and couples.
 - Couple games
 
 ### Phase 5 — Experience Intelligence
-Together combines offline ML signals with an optional generative AI experience director.
+Together uses provider-free offline ML/NLP components for the core experience intelligence.
 
 #### 5.1 Dataset foundation
-- `ml/dataset/moods.csv` — mood taxonomy
-- `ml/dataset/occasions.csv` — session occasions
-- `ml/dataset/activities.csv` — activity catalog
-- `ml/dataset/questions.csv` — starter question library
-- `ml/dataset/generate_dataset.py` — deterministic scenario generator
-
-Generate reproducible scenarios:
-
-```bash
-python3 ml/dataset/generate_dataset.py
-```
+- Mood, occasion, activity and question taxonomies
+- Deterministic 5,000-scenario generator
 
 #### 5.2 Scene classification
-Offline scikit-learn Random Forest predicts the current experience scene from mood, energy, time, occasion, relationship stage, bonding, intimacy and consent context.
-
-```bash
-python3 ml/training/train_scene_model.py
-python3 ml/predict_scene.py --mood romantic --energy medium --time 20 --time-of-day evening --occasion date_night --relationship serious --bonding 4 --intimacy moderate --couple-only true --consent true
-```
+- scikit-learn Random Forest
+- Predicts the current experience scene from session context
 
 #### 5.3 Activity recommendation
-Offline Random Forest ranks activities with safety filtering for couple-only and intimate activities.
-
-```bash
-python3 ml/training/train_activity_model.py
-python3 ml/predict_activity.py --mood sensual --energy medium --time 20 --time-of-day evening --occasion date_night --relationship serious --bonding 4 --intimacy high --couple-only true --consent true
-```
+- Offline Random Forest ranking
+- Top-1 / Top-3 / Top-5 evaluation
+- Couple-only and consent-aware filtering
 
 #### 5.4 Question Intelligence
-TF-IDF + cosine similarity retrieves relevant questions and detects semantic repetition. It also filters by couple/consent context.
-
-```bash
-python3 ml/training/build_question_engine.py
-python3 ml/predict_question.py --mood romantic --energy medium --occasion date_night --relationship serious --depth 3 --bonding 4 --intimacy moderate --couple-only true --consent true
-```
+- TF-IDF + cosine similarity
+- Context-aware retrieval
+- Semantic repetition detection
 
 #### 5.5 Preference Learning
-Together learns explicit couple preferences from `like`, `favorite`, `complete`, `skip`, `too_easy`, `too_deep`, and `dislike` feedback. The transparent preference profile is the primary signal until enough real feedback exists for the contextual model.
+- Explicit feedback: helpful, loved, complete, skip, too easy, too deep, dislike
+- Transparent couple preference profile
+- Contextual model after sufficient feedback
 
-```bash
-python3 ml/record_feedback.py --couple-id demo-couple --item-type activity --item-id flirty_qa --action favorite --category conversation --mood romantic --intimacy-level moderate
-python3 ml/train_preference_model.py
-```
-
-Local preference data is intentionally ignored by Git so personal feedback is not committed.
-
-#### 5.6 AI Experience Director
-The Couple Room includes an `🪄 AI Director` that can create 5, 15, 30 or 60 minute experiences and adapt the next moment using:
-- current mood and intensity
-- relationship/bonding context
-- dates, memories and Little Moments
-- previously used AI moments
-- learned couple preferences
-- remaining session time
-
-The Director now receives the couple's learned positive and negative preference signals. In-app feedback buttons (`Helpful`, `Loved it`, `Skip`, `Too easy`, `Too deep`) update the local preference profile directly, allowing future sessions to become more personalized.
-
-The AI service runs on port `5003` and uses the OpenAI Responses API when an API key is configured. Embeddings are used to detect semantic repetition. The server sends only saved context needed for the experience; live camera, microphone and raw call content are not sent to the AI endpoint.
+#### 5.6 Experience Director
+- Combines scene, activity, question and preference signals
+- Adapts to time, mood, bonding, intimacy and previous experiences
+- Runs locally without a generative AI API
 
 ## Intimate moods
 
-`Sensual` and `Erotic` are modeled as couple-only states. The dataset marks them with higher intimacy and consent requirements. Product behavior should remain opt-in, non-graphic and consensual, with either partner able to lower intensity or skip.
+`Sensual` and `Erotic` are couple-only states. The dataset models higher intimacy and consent requirements. Product behavior remains opt-in, non-graphic and consensual, with either partner able to lower intensity or skip.
+
+## Phase 6 — Production Engineering
+
+### 6.1 Production architecture foundation
+- Environment-aware database configuration
+- Graceful infrastructure abstraction
+- Service-oriented deployment layout
+
+### 6.2 PostgreSQL
+- Production-ready relational schema in `infra/schema.sql`
+- Optional `pg` connection/health layer in `server/postgres.js`
+- JSON persistence remains the local fallback until migration is validated
+
+### 6.3 Redis
+- Local Redis provisioned through Docker Compose
+- Reserved for ephemeral state, rate limiting, distributed realtime state and session coordination
+
+### 6.4 Security foundation
+- Production configuration is separated from local credentials
+- Secrets remain environment variables and are never committed
+- Production database credentials must use managed secrets/TLS
+
+### 6.5 Testing / CI
+- GitHub Actions validates the Vite build
+- GitHub Actions regenerates and trains the offline ML components
+
+### 6.6 Docker
+- Production Node container definition
+- `.dockerignore`
+- PostgreSQL and Redis development infrastructure
+
+### 6.7 CI/CD foundation
+- Workflow triggers on pushes and pull requests to `main`
+- JavaScript build and Python ML validation run automatically
+
+### 6.8 Deployment readiness
+The repository is structured for deployment to a Node-capable host plus managed PostgreSQL/Redis. Actual cloud deployment requires the user's hosting accounts, domains and secrets, so credentials are intentionally not committed.
+
+### 6.9 Monitoring readiness
+Health checks are available at the application services; production hosting should attach uptime checks and centralized logs before public launch.
+
+## Production infrastructure
+
+Start local PostgreSQL and Redis:
+
+```bash
+npm install
+npm run infra:up
+```
+
+Check them:
+
+```bash
+docker compose ps
+```
+
+Stop them:
+
+```bash
+npm run infra:down
+```
+
+See `infra/README.md` for the database schema, environment variables and production architecture.
 
 ## Stack
 
@@ -115,11 +146,11 @@ The AI service runs on port `5003` and uses the OpenAI Responses API when an API
 - Socket.IO
 - WebRTC
 - Python + pandas + scikit-learn + joblib for offline ML
-- OpenAI Responses API + embeddings for the optional AI Director
-- JSON file persistence for local development
+- PostgreSQL for production persistence
+- Redis for ephemeral/scalable realtime state
+- Docker + GitHub Actions for deployment infrastructure
+- JSON persistence for local development
 - bcryptjs + JWT authentication
-
-PostgreSQL/pgvector and Redis can be introduced later when the local architecture is stable.
 
 ## Run locally
 
@@ -132,8 +163,6 @@ npm install
 python3 -m pip install -r ml/requirements.txt
 ```
 
-For the AI Director, create `.env` from `.env.example` and set `OPENAI_API_KEY` locally. Never commit the key.
-
 Run the application:
 
 ```bash
@@ -145,5 +174,5 @@ Open `http://localhost:5173`.
 Local services:
 - Main server: `5001`
 - Couple service: `5002`
-- AI experience service: `5003`
+- Local ML experience service: `5003`
 - Client: `5173`
