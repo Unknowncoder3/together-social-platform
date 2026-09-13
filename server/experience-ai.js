@@ -14,6 +14,7 @@ const dataDir = path.resolve('data');
 const couplesFile = path.join(dataDir, 'couples.json');
 const usersFile = path.join(dataDir, 'db.json');
 const sessionsFile = path.join(dataDir, 'experience-sessions.json');
+const preferenceFile = path.resolve('ml/models/preference_profiles.json');
 fs.mkdirSync(dataDir, { recursive: true });
 
 const read = (file, fallback) => { try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return fallback; } };
@@ -25,9 +26,10 @@ const id = () => crypto.randomUUID();
 const users = () => read(usersFile, { users: [] }).users || [];
 const coupleStore = () => read(couplesFile, { relationships: [], dates: [], memories: [], moments: [], moods: [] });
 const couples = () => coupleStore().relationships || [];
+const preferenceProfiles = () => read(preferenceFile, {});
 const auth = (req, res, next) => { try { req.user = jwt.verify((req.headers.authorization || '').replace('Bearer ', '').trim(), SECRET); next(); } catch { res.status(401).json({ message: 'Authentication required' }); } };
 app.use(express.json({ limit: '200kb' }));
-app.get('/api/ai/health', (_, res) => res.json({ ok: true, configured: Boolean(OPENAI_API_KEY), model: OPENAI_MODEL }));
+app.get('/api/ai/health', (_, res) => res.json({ ok: true, configured: Boolean(OPENAI_API_KEY), model: OPENAI_MODEL, preferenceLearning: true }));
 
 const clean = (value, max = 700) => String(value ?? '').replace(/[<>]/g, '').trim().slice(0, max);
 const relationshipFor = uid => couples().find(r => r.userA === uid || r.userB === uid) || null;
@@ -43,6 +45,7 @@ const contextFor = uid => {
   const moments = (c.moments || []).filter(x => x.relationshipId === rel.id).slice(-30);
   const mood = (c.moods || []).find(x => x.relationshipId === rel.id) || null;
   const answers = rel.bonding?.answers || {};
+  const profile = preferenceProfiles()[rel.id] || {};
   return {
     relationshipId: rel.id,
     partnerName: clean(partner?.name || 'your partner', 80),
@@ -57,9 +60,20 @@ const contextFor = uid => {
     dates: dates.map(x => ({ title: clean(x.title, 120), date: clean(x.date, 30), type: clean(x.type, 60), notes: clean(x.notes, 300) })),
     memories: memories.map(x => ({ title: clean(x.title, 120), description: clean(x.description, 500), date: clean(x.date, 30) })),
     moments: moments.map(x => ({ text: clean(x.text, 500), kind: clean(x.kind, 60) })),
-    mood: { mood: clean(mood?.mood || 'Romantic', 50), intensity: Math.max(1, Math.min(5, Number(mood?.intensity) || 3)) }
+    mood: { mood: clean(mood?.mood || 'Romantic', 50), intensity: Math.max(1, Math.min(5, Number(mood?.intensity) || 3)) },
+    preferences: {
+      totalFeedback: Number(profile.total_feedback) || 0,
+      favoriteActivities: topPositive(profile.activity_scores),
+      avoidedActivities: topNegative(profile.activity_scores),
+      favoriteQuestions: topPositive(profile.question_scores),
+      avoidedCategories: topNegative(profile.category_scores),
+      moodSignals: topPositive(profile.mood_scores)
+    }
   };
 };
+
+const topPositive = bucket => Object.entries(bucket || {}).filter(([,v]) => Number(v) > 0).sort((a,b) => Number(b[1]) - Number(a[1])).slice(0, 6).map(([k,v]) => `${k} (${Number(v).toFixed(1)})`);
+const topNegative = bucket => Object.entries(bucket || {}).filter(([,v]) => Number(v) < 0).sort((a,b) => Number(a[1]) - Number(b[1])).slice(0, 6).map(([k,v]) => `${k} (${Number(v).toFixed(1)})`);
 
 const cosine = (a, b) => {
   let dot = 0, aa = 0, bb = 0;
@@ -116,7 +130,7 @@ const dedupeSteps = async (rid, steps) => {
 };
 const buildPrompt = (ctx, p) => `You are the AI Date Director inside Together, a private virtual hangout for two consenting partners. Create a warm, playful, emotionally intelligent experience. Never generate graphic sexual content, coercion, humiliation, or unsafe instructions. Romantic content must remain non-graphic and optional. Either partner can skip or lower intensity. Use saved memories only as inspiration and do not expose implementation details.
 
-RELATIONSHIP CONTEXT:\n${JSON.stringify(ctx)}\n\nSESSION:\nduration=${p.duration}; specialNight=${specialLabel(p.special)}; remainingMinutes=${p.remainingMinutes}; currentMood=${clean(p.currentMood,50)}; currentIntensity=${p.currentIntensity}/5; bondingLevel=${ctx.bondingLevel}/5.\n\nCOMPLETED THIS SESSION:\n${JSON.stringify(p.completed.slice(-12))}\n\nPREVIOUSLY USED ACTIVITIES TO AVOID:\n${JSON.stringify(p.history.slice(-60).map(x => x.text))}\n\nMatch the mood and remaining time. If many questions were already used, switch to a choice, challenge, memory or reflection. Keep each moment short enough to use live on a call.`;
+RELATIONSHIP CONTEXT:\n${JSON.stringify(ctx)}\n\nSESSION:\nduration=${p.duration}; specialNight=${specialLabel(p.special)}; remainingMinutes=${p.remainingMinutes}; currentMood=${clean(p.currentMood,50)}; currentIntensity=${p.currentIntensity}/5; bondingLevel=${ctx.bondingLevel}/5.\n\nCOMPLETED THIS SESSION:\n${JSON.stringify(p.completed.slice(-12))}\n\nPREVIOUSLY USED ACTIVITIES TO AVOID:\n${JSON.stringify(p.history.slice(-60).map(x => x.text))}\n\nPERSONALIZATION RULES:\nUse positive preference signals to make the experience feel tailored. Avoid items/categories with strong negative preference signals. Do not overfit when totalFeedback is small; with fewer than 5 feedback events, treat preferences as weak hints. With 5-29 events, use them as moderate ranking signals. With 30+ events, trust repeated patterns more strongly. Never override current consent, current mood, safety, or the couple's ability to skip.\n\nMatch the mood and remaining time. If many questions were already used, switch to a choice, challenge, memory or reflection. Keep each moment short enough to use live on a call.`;
 
 app.get('/api/ai/experience/active', auth, (req, res) => {
   const ctx = contextFor(req.user.id);
@@ -163,6 +177,37 @@ app.post('/api/ai/experience/next', auth, async (req, res) => {
     if (step) await remember(ctx.relationshipId, [step]);
     res.json({ step, directorNote: clean(data.directorNote, 400), remainingMinutes: remaining });
   } catch (e) { res.status(e.status || 500).json({ message: e.message || 'AI next-step decision failed.' }); }
+});
+
+app.post('/api/ai/experience/feedback', auth, (req, res) => {
+  try {
+    const ctx = contextFor(req.user.id);
+    if (!ctx) return res.status(409).json({ message: 'Connect with a partner first.' });
+    const allowed = new Set(['like', 'favorite', 'complete', 'skip', 'too_easy', 'too_deep', 'dislike']);
+    const actions = { favorite: 1.5, like: 1.0, complete: 0.8, skip: -1.0, too_easy: -0.6, too_deep: -0.7, dislike: -1.2 };
+    const action = String(req.body.action || '').trim().toLowerCase();
+    if (!allowed.has(action)) return res.status(400).json({ message: 'Unsupported feedback action.' });
+    const itemType = String(req.body.itemType || 'activity').trim().toLowerCase() === 'question' ? 'question' : 'activity';
+    const itemId = clean(req.body.itemId, 500);
+    if (!itemId) return res.status(400).json({ message: 'Feedback item is required.' });
+    const category = clean(req.body.category, 80);
+    const mood = clean(req.body.mood, 50);
+    const intimacy = clean(req.body.intimacy, 20);
+    const profiles = preferenceProfiles();
+    const profile = profiles[ctx.relationshipId] || { total_feedback: 0, actions: {}, activity_scores: {}, question_scores: {}, category_scores: {}, mood_scores: {}, intimacy_scores: {} };
+    const add = (bucket, key, value) => { if (!key) return; bucket[key] = Number((Number(bucket[key] || 0) + value).toFixed(4)); };
+    profile.total_feedback = Number(profile.total_feedback || 0) + 1;
+    add(profile.actions, action, 1);
+    const weight = actions[action];
+    add(itemType === 'activity' ? profile.activity_scores : profile.question_scores, itemId, weight);
+    add(profile.category_scores, category, weight * 0.6);
+    add(profile.mood_scores, mood, weight * 0.5);
+    add(profile.intimacy_scores, intimacy, weight * 0.35);
+    profiles[ctx.relationshipId] = profile;
+    fs.mkdirSync(path.dirname(preferenceFile), { recursive: true });
+    fs.writeFileSync(preferenceFile, JSON.stringify(profiles, null, 2));
+    res.json({ ok: true, totalFeedback: profile.total_feedback, message: 'Preference saved for future experiences.' });
+  } catch (e) { res.status(500).json({ message: e.message || 'Could not save preference.' }); }
 });
 
 app.post('/api/ai/experience/complete', auth, async (req, res) => {
