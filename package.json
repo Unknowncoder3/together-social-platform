@@ -12,6 +12,12 @@
     "ml:generate": "python3 ml/dataset/generate_dataset.py",
     "ml:train-scene": "python3 ml/training/train_scene_model.py",
     "ml:predict-scene": "python3 ml/predict_scene.py",
+    "ml:train-activity": "python3 ml/training/train_activity_model.py",
+    "ml:predict-activity": "python3 ml/predict_activity.py",
+    "ml:question-engine": "python3 ml/training/build_question_engine.py",
+    "ml:predict-question": "python3 ml/predict_question.py",
+    "ml:train-preference": "python3 ml/train_preference_model.py",
+    "ml:record-feedback": "python3 ml/record_feedback.py",
     "start": "node server/index.js"
   },
   "dependencies": {
