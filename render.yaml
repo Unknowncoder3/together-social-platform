@@ -41,3 +41,19 @@ services:
     runtime: static
     buildCommand: npm install && npm run build
     staticPublishPath: ./client/dist
+    routes:
+      - type: rewrite
+        source: /api/couple
+        destination: https://together-couple.onrender.com/api/couple
+      - type: rewrite
+        source: /api/couple/*
+        destination: https://together-couple.onrender.com/api/couple/*
+      - type: rewrite
+        source: /api/ai/*
+        destination: https://together-ml.onrender.com/api/ai/*
+      - type: rewrite
+        source: /api/*
+        destination: https://together-api.onrender.com/api/*
+      - type: rewrite
+        source: /*
+        destination: /index.html
