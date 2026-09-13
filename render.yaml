@@ -57,3 +57,8 @@ services:
       - type: rewrite
         source: /*
         destination: /index.html
+    envVars:
+      - key: VITE_API_ORIGIN
+        value: https://together-api.onrender.com
+      - key: VITE_COUPLE_SOCKET_URL
+        value: https://together-couple.onrender.com
