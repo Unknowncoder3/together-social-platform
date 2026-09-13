@@ -1,0 +1,31 @@
+question_id,question,category,mood,energy_level,intimacy_level,occasion,relationship_stage,depth,romantic_intensity,couple_only,consent_required
+1,What's one small thing that always makes you smile?,light,any,medium,none,normal_day,any,1,0,false,false
+2,What is a hobby you could happily spend a whole day doing?,getting_to_know,any,medium,none,first_date,new,1,0,false,false
+3,What's your ideal way to spend a free evening together?,preference,relaxed,low,light,normal_day,any,1,1,false,false
+4,What was your first impression of me?,relationship,nostalgic,low,moderate,first_date,dating,2,2,true,false
+5,What's a memory with me that still makes you laugh?,memory,nostalgic,low,moderate,special_memory,any,2,2,true,false
+6,What is one thing about our relationship you are proud of?,relationship,romantic,medium,moderate,anniversary,serious,3,2,true,false
+7,What little thing I do makes you feel cared for?,affection,affectionate,low,moderate,normal_day,any,2,2,true,false
+8,If we could take a spontaneous trip tomorrow where would we go?,future,energetic,high,light,weekend,any,1,1,false,false
+9,What's one dream you would love us to experience together?,future,romantic,medium,moderate,date_night,serious,3,3,true,false
+10,What's a moment when you felt especially close to me?,connection,deep,low,moderate,special_memory,any,3,3,true,false
+11,What song reminds you of us?,music,nostalgic,low,moderate,normal_day,any,2,2,true,false
+12,What's something new you would love for us to try together?,adventure,playful,high,light,weekend,any,1,1,false,false
+13,What's one compliment you wish I heard more often?,affection,affectionate,low,moderate,normal_day,any,2,2,true,false
+14,What's your favorite kind of date with me?,date,date_night,medium,moderate,date_night,dating,2,2,true,false
+15,What would make tonight feel special for you?,connection,romantic,medium,moderate,date_night,any,2,3,true,false
+16,What kind of atmosphere makes you feel most romantic?,romance,romantic,low,high,date_night,dating,2,4,true,true
+17,What's something I do that you find especially charming?,flirting,sensual,medium,high,date_night,dating,2,4,true,true
+18,What's a playful way you like to flirt?,flirting,sensual,medium,high,late_night,dating,2,4,true,true
+19,What kind of affectionate moment gives you butterflies?,romance,sensual,low,high,date_night,serious,3,4,true,true
+20,What's one romantic scenario you would enjoy imagining together?,fantasy,sensual,medium,high,date_night,serious,2,4,true,true
+21,What's something about our chemistry that you love?,connection,erotic,medium,very_high,late_night,serious,3,5,true,true
+22,What kind of flirty conversation makes you feel closest to me?,flirting,erotic,medium,very_high,date_night,serious,3,5,true,true
+23,What's one playful boundary you would like us to discuss before a flirty game?,consent,erotic,low,very_high,normal_day,serious,2,5,true,true
+24,What would make an intimate date feel comfortable and special for you?,consent,erotic,low,very_high,date_night,long_term,3,5,true,true
+25,What's a romantic surprise you would genuinely enjoy?,surprise,romantic,medium,moderate,anniversary,any,2,3,true,false
+26,What is one thing you want us to remember about this year?,reflection,nostalgic,low,moderate,anniversary,serious,3,2,true,false
+27,If our relationship were a movie what would its title be?,creative,playful,medium,moderate,normal_day,any,2,2,true,false
+28,What is one silly challenge we should try together?,challenge,playful,high,light,weekend,any,1,1,false,false
+29,What is one thing you appreciate about me today?,gratitude,affectionate,low,moderate,rough_day,any,2,2,true,false
+30,What kind of quiet moment together feels most comforting?,comfort,calm,low,light,rough_day,any,2,1,true,false
