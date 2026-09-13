@@ -1,36 +1,40 @@
 # Together — Social & Virtual Experience Platform
 
-> Don't just call. Hang out.
+> **Don't just call. Hang out.**
 
-Together is a portfolio-grade real-time social platform for friends and couples. The project is built phase-by-phase so every major feature can be tested locally before the next layer is added.
+Together is a portfolio-grade real-time social platform for friends and couples. It combines live communication, shared activities, multiplayer games, a private couple experience and a fully local experience-intelligence layer.
 
-## Current milestones
+## Current status
 
-### Phase 1 — Foundation
+The **local MVP is feature-complete**. Core social persistence is now PostgreSQL-backed, with the legacy JSON store retained temporarily as a safe migration/fallback layer. Phase 6 production hardening remains before a public cloud launch.
+
+## Product phases
+
+### Phase 1 — Foundation ✅
 - Register / login
 - Profile
 - Friend requests
 - Create / join rooms
-- Persistent local data
 - Room chat
 
-### Phase 2 — Real-Time Experience
+### Phase 2 — Real-Time Experience ✅
 - Socket.IO real-time chat and presence
 - WebRTC video/audio
 - Camera and microphone controls
 - Screen sharing
 - Join/leave notifications
+- Emoji reactions
 
-### Phase 3 — Games + Questions
+### Phase 3 — Games + Questions ✅
 - Tic-Tac-Toe
 - Connect Four
 - Trivia Battle
 - Scribble
 - Find the Spy
 - Question Lab
-- Context-aware question retrieval and repetition detection
+- Context-aware retrieval and repetition detection
 
-### Phase 4 — Couple Experience
+### Phase 4 — Couple Experience ✅
 - One-to-one couple connection
 - Private couple room
 - Couple video/audio/chat
@@ -40,104 +44,73 @@ Together is a portfolio-grade real-time social platform for friends and couples.
 - Little Moments
 - Mood and intensity
 - Couple games
+- Consent-aware higher-intensity modes
 
-### Phase 5 — Experience Intelligence
-Together uses provider-free offline ML/NLP components for the core experience intelligence.
+### Phase 5 — Experience Intelligence ✅
+Together uses provider-free offline ML/NLP components for core experience intelligence.
 
-#### 5.1 Dataset foundation
-- Mood, occasion, activity and question taxonomies
-- Deterministic 5,000-scenario generator
+- Deterministic 5,000-scenario dataset
+- Random Forest scene classifier
+- Offline activity recommendation/ranking
+- TF-IDF + cosine question retrieval
+- Repetition/similarity detection
+- Transparent local preference learning
+- Local Experience Director/orchestrator
+- No external generative AI API dependency
 
-#### 5.2 Scene classification
-- scikit-learn Random Forest
-- Predicts the current experience scene from session context
+> The synthetic dataset and validation metrics are development benchmarks, not evidence of real-world model performance.
 
-#### 5.3 Activity recommendation
-- Offline Random Forest ranking
-- Top-1 / Top-3 / Top-5 evaluation
-- Couple-only and consent-aware filtering
+## Phase 6 — Production Engineering 🚧
 
-#### 5.4 Question Intelligence
-- TF-IDF + cosine similarity
-- Context-aware retrieval
-- Semantic repetition detection
+### Completed
+- Docker PostgreSQL
+- Docker Redis
+- Production relational schema
+- PostgreSQL connection pool and health check
+- Existing-user migration preserving UUIDs
+- PostgreSQL-backed authentication
+- PostgreSQL-backed profile/search
+- PostgreSQL-backed friends
+- PostgreSQL-backed rooms and membership
+- PostgreSQL-backed message history
+- Live Socket.IO chat → PostgreSQL synchronization bridge
+- Dockerfiles and `.dockerignore`
+- GitHub Actions CI
+- Render deployment definitions
+- Environment/secrets separation
 
-#### 5.5 Preference Learning
-- Explicit feedback: helpful, loved, complete, skip, too easy, too deep, dislike
-- Transparent couple preference profile
-- Contextual model after sufficient feedback
+### Remaining before public launch
+- Remove the legacy JSON dependency after full regression testing
+- Move couple persistence to PostgreSQL
+- Move persistent experience/session state to PostgreSQL where appropriate
+- Redis-backed distributed presence/rate limiting
+- Structured production logging and centralized error handling
+- Automated end-to-end/integration tests
+- Production HTTPS and service URL configuration
+- Managed PostgreSQL/Redis backups and monitoring
 
-#### 5.6 Experience Director
-- Combines scene, activity, question and preference signals
-- Adapts to time, mood, bonding, intimacy and previous experiences
-- Runs locally without a generative AI API
+## PostgreSQL + Redis
 
-## Intimate moods
-
-`Sensual` and `Erotic` are couple-only states. The dataset models higher intimacy and consent requirements. Product behavior remains opt-in, non-graphic and consensual, with either partner able to lower intensity or skip.
-
-## Phase 6 — Production Engineering
-
-### 6.1 Production architecture foundation
-- Environment-aware database configuration
-- Graceful infrastructure abstraction
-- Service-oriented deployment layout
-
-### 6.2 PostgreSQL
-- Production-ready relational schema in `infra/schema.sql`
-- Optional `pg` connection/health layer in `server/postgres.js`
-- JSON persistence remains the local fallback until migration is validated
-
-### 6.3 Redis
-- Local Redis provisioned through Docker Compose
-- Reserved for ephemeral state, rate limiting, distributed realtime state and session coordination
-
-### 6.4 Security foundation
-- Production configuration is separated from local credentials
-- Secrets remain environment variables and are never committed
-- Production database credentials must use managed secrets/TLS
-
-### 6.5 Testing / CI
-- GitHub Actions validates the Vite build
-- GitHub Actions regenerates and trains the offline ML components
-
-### 6.6 Docker
-- Production Node container definition
-- `.dockerignore`
-- PostgreSQL and Redis development infrastructure
-
-### 6.7 CI/CD foundation
-- Workflow triggers on pushes and pull requests to `main`
-- JavaScript build and Python ML validation run automatically
-
-### 6.8 Deployment readiness
-The repository is structured for deployment to a Node-capable host plus managed PostgreSQL/Redis. Actual cloud deployment requires the user's hosting accounts, domains and secrets, so credentials are intentionally not committed.
-
-### 6.9 Monitoring readiness
-Health checks are available at the application services; production hosting should attach uptime checks and centralized logs before public launch.
-
-## Production infrastructure
-
-Start local PostgreSQL and Redis:
+Start local infrastructure:
 
 ```bash
-npm install
 npm run infra:up
 ```
 
-Check them:
+Check it:
 
 ```bash
 docker compose ps
+npm run db:check
 ```
 
-Stop them:
+Stop it:
 
 ```bash
 npm run infra:down
 ```
 
-See `infra/README.md` for the database schema, environment variables and production architecture.
+The repository compose file maps PostgreSQL to host port `5432`. If your Mac already uses 5432, change the host mapping to `5433:5432` and use `localhost:5433` in `DATABASE_URL`.
 
 ## Stack
 
@@ -145,12 +118,13 @@ See `infra/README.md` for the database schema, environment variables and product
 - Node.js + Express
 - Socket.IO
 - WebRTC
-- Python + pandas + scikit-learn + joblib for offline ML
-- PostgreSQL for production persistence
-- Redis for ephemeral/scalable realtime state
-- Docker + GitHub Actions for deployment infrastructure
-- JSON persistence for local development
-- bcryptjs + JWT authentication
+- Python + pandas + scikit-learn + joblib
+- PostgreSQL
+- Redis
+- Docker
+- GitHub Actions
+- bcryptjs + JWT
+- Bootstrap-based UI components
 
 ## Run locally
 
@@ -163,7 +137,13 @@ npm install
 python3 -m pip install -r ml/requirements.txt
 ```
 
-Run the application:
+Start infrastructure first:
+
+```bash
+npm run infra:up
+```
+
+Then start Together:
 
 ```bash
 npm run dev
@@ -171,8 +151,40 @@ npm run dev
 
 Open `http://localhost:5173`.
 
-Local services:
-- Main server: `5001`
-- Couple service: `5002`
-- Local ML experience service: `5003`
-- Client: `5173`
+### Services
+
+| Service | Port |
+|---|---:|
+| Main API + Socket.IO | 5001 |
+| Couple service | 5002 |
+| Local ML service | 5003 |
+| Vite client | 5173 |
+| PostgreSQL | 5432* |
+| Redis | 6379 |
+
+`*` Use 5433 on the host if 5432 is already occupied.
+
+## Environment
+
+Copy `.env.example` to `.env` and adjust the database port if required. Never commit production secrets.
+
+The Experience Director runs locally; no OpenAI, Gemini, Groq or other external generative AI API key is required.
+
+## Repository structure
+
+```text
+client/             React/Vite application
+server/             Main API, couple service and local AI orchestrator
+ml/                 Dataset, training and inference code
+infra/               PostgreSQL schema and infrastructure documentation
+data/                Local migration/fallback data
+docker-compose.yml   PostgreSQL + Redis development stack
+Dockerfile           Main Node service image
+Dockerfile.ml        Local ML service image
+render.yaml          Deployment service definitions
+.github/workflows/   CI pipeline
+```
+
+## Important migration rule
+
+Do **not** delete `data/db.json` yet. It is still used by legacy real-time/game code as a compatibility layer. Remove it only after Phase 6.2E is completed and the complete application has been regression-tested against PostgreSQL alone.
