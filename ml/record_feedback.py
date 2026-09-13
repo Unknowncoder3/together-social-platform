@@ -1,10 +1,12 @@
-"""Record one Together feedback event into the local preference dataset."""
+"""Record one Together feedback event and update the couple profile."""
 
 from __future__ import annotations
 
 import argparse
 import csv
 from pathlib import Path
+
+from preference_engine import PreferenceEngine
 
 ROOT = Path(__file__).resolve().parent
 DATA_PATH = ROOT / "dataset" / "feedback.csv"
@@ -48,8 +50,15 @@ def main() -> None:
             "relationship_stage": args.relationship_stage,
             "bonding_level": args.bonding_level,
         })
-    print(f"Recorded feedback for {args.couple_id}: {args.item_type} {args.item_id} -> {args.action}")
-    print(f"Dataset: {DATA_PATH}")
+
+    engine = PreferenceEngine()
+    profile = engine.update(
+        args.couple_id, args.item_type, args.item_id, args.action,
+        args.category, args.mood, args.intimacy_level,
+    )
+    print(f"Recorded feedback: {args.item_type} {args.item_id} -> {args.action}")
+    print(f"Couple feedback count: {profile['total_feedback']}")
+    print(f"Profile: {engine.profile_path}")
 
 
 if __name__ == "__main__":
