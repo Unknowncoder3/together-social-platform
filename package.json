@@ -9,6 +9,7 @@
     "ai-server": "node server/experience-ai.js",
     "client": "vite --config client/vite.config.js",
     "build": "vite build --config client/vite.config.js",
+    "ml:generate": "python3 ml/dataset/generate_dataset.py",
     "start": "node server/index.js"
   },
   "dependencies": {
