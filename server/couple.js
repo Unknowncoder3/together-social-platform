@@ -5,6 +5,7 @@ import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
+import {getPool} from './postgres.js';
 
 const app=express();
 const server=http.createServer(app);
@@ -16,6 +17,8 @@ const usersFile=path.join(dataDir,'db.json');
 const couplesFile=path.join(dataDir,'couples.json');
 fs.mkdirSync(dataDir,{recursive:true});
 const readUsers=()=>{try{return JSON.parse(fs.readFileSync(usersFile,'utf8')).users||[]}catch{return[]}};
+let userCache=readUsers();
+const hydrateUsers=async()=>{const pool=getPool();if(!pool)return;try{const r=await pool.query('SELECT id,name,email,bio FROM users');userCache=r.rows.map(u=>({id:u.id,name:u.name,email:u.email,bio:u.bio||''}));console.log(`Together couple service: loaded ${userCache.length} users from PostgreSQL`)}catch(error){console.error('Together couple PostgreSQL user load failed; using local fallback:',error.message)}};
 let store=fs.existsSync(couplesFile)?JSON.parse(fs.readFileSync(couplesFile,'utf8')):{relationships:[],requests:[],dates:[],memories:[],moments:[],moods:[],rooms:[],messages:[]};
 for(const k of ['relationships','requests','dates','memories','moments','moods','rooms','messages'])store[k]??=[];
 const save=()=>fs.writeFileSync(couplesFile,JSON.stringify(store,null,2));
@@ -23,7 +26,7 @@ const id=()=>crypto.randomUUID();
 const pub=u=>u?({id:u.id,name:u.name,email:u.email,bio:u.bio||''}):null;
 const auth=(req,res,next)=>{try{req.user=jwt.verify((req.headers.authorization||'').replace('Bearer ','').trim(),SECRET);next()}catch{res.status(401).json({message:'Authentication required'})}};
 app.use((req,res,next)=>{res.setHeader('Access-Control-Allow-Origin','*');res.setHeader('Access-Control-Allow-Headers','Content-Type, Authorization');res.setHeader('Access-Control-Allow-Methods','GET,POST,PUT,PATCH,DELETE,OPTIONS');if(req.method==='OPTIONS')return res.sendStatus(204);next()});
-const users=()=>readUsers();
+const users=()=>userCache;
 const relationshipFor=uid=>store.relationships.find(r=>r.userA===uid||r.userB===uid)||null;
 const pairFor=(uid,rid)=>{const r=store.relationships.find(x=>x.id===rid);return r&&(r.userA===uid||r.userB===uid)?r:null};
 const partnerOf=(r,uid)=>r?.userA===uid?r?.userB:r?.userA;
@@ -69,4 +72,5 @@ io.on('connection',socket=>{
  socket.on('couple:game',({relationshipId,type,state})=>{const rel=pairFor(socket.user.id,relationshipId);if(!rel)return;const room=`couple:${rel.id}`;const connected=[...io.sockets.adapter.rooms.get(room)||[]];if(connected.length>2)return;const safe=cleanGame(rel.id,{type,state});if(!safe)return;if(type==='clear'){gameSessions.delete(rel.id);io.to(room).emit('couple:game',{type:'clear',state:null});return}gameSessions.set(rel.id,safe);io.to(room).emit('couple:game',safe)});
 });
 
-server.listen(PORT,()=>console.log(`Together couple service: http://localhost:${PORT}`));
+const start=async()=>{await hydrateUsers();server.listen(PORT,()=>console.log(`Together couple service: http://localhost:${PORT}`))};
+start();
