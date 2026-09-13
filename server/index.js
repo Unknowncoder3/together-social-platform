@@ -65,8 +65,6 @@ const triviaBank=[
 ];
 const scribbleWords=['apple','rocket','castle','pizza','guitar','mountain','dragon','camera','airplane','hamburger','rainbow','football','lighthouse','robot','ice cream','volcano','pirate ship','birthday cake','snowman','bicycle'];
 const spyLocations=['Beach','Airport','Hospital','Restaurant','School','Space Station','Movie Studio','Hotel','Police Station','Amusement Park'];
-const sendScribble=rid=>{const g=games.get(gameKey(rid,'scribble'));if(!g)return;io.to(rid).emit('game:scribble',{roomId:rid,drawer:g.drawer,round:g.round,scores:g.scores,started:g.started,choices:g.started?[]:(g.drawer?g.choices||[]:[]),timeLeft:g.timeLeft||0});for(const[,socket]of io.sockets.sockets){if([...socket.rooms].includes(rid)&&socket.user?.id===g.drawer)socket.emit('game:scribble:drawer',{choices:g.choices||[],word:g.word||null})}};
-const sendSpyState=roomId=>{const g=games.get(gameKey(roomId,'spy'));if(!g)return;for(const[,socket]of io.sockets.sockets){if(![...socket.rooms].includes(roomId))continue;const role=g.spy===socket.user?.id?'spy':'civilian';socket.emit('game:spy',{roomId,players:g.players,started:g.started,round:g.round,role,clue:role==='civilian'?g.location:null,votes:Object.keys(g.votes||{}).length,result:g.result||null,voted:Boolean(g.votes?.[socket.user?.id])})}};
 
 io.use((s,next)=>{try{s.user=jwt.verify(s.handshake.auth.token,SECRET);next()}catch{next(new Error('Unauthorized'))}});
 io.on('connection',s=>{
@@ -111,4 +109,7 @@ io.on('connection',s=>{
  s.on('question:add',({roomId,text})=>{if(!roomMembers(roomId).includes(uid)||!String(text||'').trim())return;const clean=String(text).trim();const old=db.questions.filter(q=>q.roomId===roomId);const similarity=old.reduce((m,q)=>Math.max(m,questionSimilarity(clean,q.text)),0);const q={id:id(),roomId,userId:uid,text:clean,category:categoryOf(clean),type:/\?$/.test(clean)?'Open question':'Prompt',createdAt:new Date().toISOString()};db.questions.push(q);save();io.to(roomId).emit('question:update',{roomId,questions:db.questions.filter(x=>x.roomId===roomId).slice(-50),analysis:{category:q.category,type:q.type,similarity}})});
  s.on('disconnect',()=>{const n=(online.get(uid)||1)-1;n?online.set(uid,n):online.delete(uid);s.broadcast.emit('presence',{userId:uid,online:n>0});for(const rid of [...s.rooms].filter(r=>r!==s.id))emitPresence(rid)});
 });
+
+const sendScribble=rid=>{const g=games.get(gameKey(rid,'scribble'));if(!g)return;io.to(rid).emit('game:scribble',{roomId:rid,drawer:g.drawer,round:g.round,scores:g.scores,started:g.started,choices:g.started?[]:(g.choices||[]),timeLeft:g.timeLeft||0});for(const[,socket]of io.sockets.sockets){if([...socket.rooms].includes(rid)&&socket.user?.id===g.drawer)socket.emit('game:scribble:drawer',{choices:g.choices||[],word:g.word||null})}};
+const sendSpyState=roomId=>{const g=games.get(gameKey(roomId,'spy'));if(!g)return;for(const[,socket]of io.sockets.sockets){if(![...socket.rooms].includes(roomId))continue;const role=g.spy===socket.user?.id?'spy':'civilian';socket.emit('game:spy',{roomId,players:g.players,started:g.started,round:g.round,role,clue:role==='civilian'?g.location:null,votes:Object.keys(g.votes||{}).length,result:g.result||null,voted:Boolean(g.votes?.[socket.user?.id])})}};
 server.listen(PORT,()=>console.log(`Together server: http://localhost:${PORT}`));
