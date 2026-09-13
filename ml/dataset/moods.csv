@@ -1,0 +1,14 @@
+mood_id,mood_name,energy_default,intimacy_level,couple_only,description
+1,happy,high,light,false,Positive upbeat mood suitable for cheerful shared activities
+2,playful,high,light,false,Fun teasing competitive and humorous mood
+3,romantic,medium,moderate,true,Affectionate romantic connection and bonding
+4,affectionate,medium,moderate,true,Warm caring emotionally close mood
+5,deep,medium,light,false,Reflective thoughtful conversation and meaningful connection
+6,calm,low,light,false,Peaceful low-pressure shared experience
+7,relaxed,low,light,false,Comfortable easygoing mood with minimal pressure
+8,energetic,very_high,light,false,High-energy mood for active games and challenges
+9,nostalgic,low,moderate,true,Memory-focused reflective emotional mood
+10,celebratory,high,moderate,true,Excited mood around achievements and special moments
+11,low_energy,very_low,light,false,Tired or quiet mood requiring gentle activities
+12,sensual,medium,high,true,Flirty intimate romantic mood for consenting couples
+13,erotic,medium,very_high,true,Adult-only intimate and flirtatious mood; non-graphic experiences only
