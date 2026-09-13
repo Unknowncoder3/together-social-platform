@@ -94,24 +94,40 @@ Test recommendations:
 python3 ml/predict_question.py --mood romantic --energy medium --occasion date_night --relationship serious --depth 3 --bonding 4 --intimacy moderate --couple-only true --consent true
 ```
 
-Test repetition handling by passing previous questions repeatedly:
+#### 5.5 Preference Learning
+Together now has an offline preference-learning layer that learns from explicit couple feedback instead of assuming every couple has the same tastes.
+
+Supported feedback signals:
+- `like`
+- `favorite`
+- `complete`
+- `skip`
+- `too_easy`
+- `too_deep`
+- `dislike`
+
+The online `PreferenceEngine` keeps transparent per-couple scores for activities, questions, categories, moods and intimacy levels. This can immediately personalize rankings without an external AI service.
+
+Record a feedback event:
 
 ```bash
-python3 ml/predict_question.py \
+python3 ml/record_feedback.py \
+  --couple-id demo-couple \
+  --item-type activity \
+  --item-id flirty_qa \
+  --action favorite \
+  --category conversation \
   --mood romantic \
-  --energy medium \
-  --occasion date_night \
-  --relationship serious \
-  --depth 3 \
-  --bonding 4 \
-  --intimacy moderate \
-  --couple-only true \
-  --consent true \
-  --previous-question "What's a memory with me that still makes you laugh?"
+  --intimacy-level moderate
 ```
 
-#### 5.5 Planned preference learning
-The next layer will learn individual/couple preferences from explicit feedback such as useful, skip, too easy, too deep, and favorite activity/question. This will become a personalized ranking signal on top of the scene, activity and question engines.
+Once at least 30 feedback events exist, the optional contextual Ridge model can be trained:
+
+```bash
+python3 ml/train_preference_model.py
+```
+
+This threshold is intentional: the first version learns online with an interpretable scoring system, while the supervised model waits for real interaction data instead of pretending synthetic examples represent genuine user preferences.
 
 ## Intimate moods
 
