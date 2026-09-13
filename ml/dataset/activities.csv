@@ -1,0 +1,26 @@
+activity_id,activity_name,category,base_energy,min_minutes,max_minutes,intimacy_level,couple_only,description
+1,Rapid Fire,question_game,high,5,15,light,false,Fast short-answer questions
+2,This or That,question_game,medium,5,15,light,false,Quick preference choices
+3,Trivia Battle,competitive_game,high,10,30,light,false,Competitive knowledge game
+4,Tic Tac Toe,competitive_game,medium,5,15,light,false,Short strategic game
+5,Connect Four,competitive_game,medium,10,30,light,false,Longer strategic game
+6,Scribble,creative_game,high,10,30,light,false,Drawing and guessing game
+7,Find the Spy,social_game,high,10,20,light,false,Hidden-role social deduction game
+8,Two Truths and a Lie,question_game,medium,10,20,light,false,Personal guessing game
+9,How Well Do You Know Me,question_game,medium,10,25,moderate,true,Couple knowledge challenge
+10,Memory Lane,memory,low,10,25,moderate,true,Shared memory prompts
+11,Relationship Timeline,memory,low,15,30,moderate,true,Revisit meaningful relationship moments
+12,Deep Questions,conversation,low,10,30,light,false,Meaningful reflective conversation
+13,Future Plans,conversation,medium,10,25,moderate,true,Discuss hopes and future experiences
+14,Date Planner,date_activity,medium,10,30,moderate,true,Design a future date together
+15,Music Mood,watch_together,low,10,30,light,false,Choose and discuss music together
+16,Watch Together,watch_together,low,15,60,light,false,Shared viewing session
+17,Couple Challenge,challenge,high,10,25,moderate,true,Cooperative or playful challenge
+18,Truth or Dare,romantic_activity,medium,10,30,moderate,true,Consensual playful prompts with adjustable intensity
+19,Flirty This or That,intimate_activity,medium,5,20,high,true,Flirty preference game for consenting couples
+20,Romantic Q&A,intimate_activity,low,10,25,high,true,Romantic and intimate questions
+21,Compliment Challenge,romantic_activity,low,5,15,moderate,true,Exchange thoughtful compliments
+22,Little Moments,memory,low,5,20,moderate,true,Create or revisit tiny shared moments
+23,Cozy Conversation,conversation,low,5,20,moderate,true,Low-pressure affectionate conversation
+24,Date Night Roulette,date_activity,medium,10,30,moderate,true,Choose a surprise date idea
+25,Playful Teasing Cards,intimate_activity,medium,5,20,high,true,Consensual light flirting and playful teasing
