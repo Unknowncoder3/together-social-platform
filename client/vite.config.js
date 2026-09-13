@@ -19,9 +19,10 @@ const productionEndpointRewrite = {
 
     // Couple/experience modules: route their relative API calls to the
     // appropriate service when an explicit VITE_* API URL is configured.
+    // Normalize /api so VITE_API_URL=https://.../api never becomes /api/api/...
     out = out.replace(
       "const api=async(path,options={})=>{const r=await fetch(path,",
-      "const api=async(path,options={})=>{const base=path.startsWith('/api/couple')?(import.meta.env.VITE_COUPLE_URL||''):path.startsWith('/api/ai')?(import.meta.env.VITE_AI_URL||''):(import.meta.env.VITE_API_URL||'');const target=base&&path.startsWith('/api')?base+path:path;const r=await fetch(target,"
+      "const api=async(path,options={})=>{const base=path.startsWith('/api/couple')?(import.meta.env.VITE_COUPLE_URL||''):path.startsWith('/api/ai')?(import.meta.env.VITE_AI_URL||''):(import.meta.env.VITE_API_URL||'');const target=base?(base.endsWith('/api')&&path.startsWith('/api')?base+path.slice(4):base+path):path;const r=await fetch(target,"
     );
 
     // Couple Mode currently names its local socket endpoint explicitly.
