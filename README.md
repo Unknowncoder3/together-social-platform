@@ -28,6 +28,7 @@ Together is a portfolio-grade real-time social platform for friends and couples.
 - Scribble
 - Find the Spy
 - Question Lab
+- Context-aware question retrieval and repetition detection
 
 ### Phase 4 — Couple Experience
 - One-to-one couple connection
@@ -40,25 +41,24 @@ Together is a portfolio-grade real-time social platform for friends and couples.
 - Mood and intensity
 - Couple games
 
-### Phase 5 — Proprietary Experience Intelligence
-Together's long-term AI goal is an offline ML/recommendation pipeline rather than dependence on a hosted generative AI provider.
+### Phase 5 — Experience Intelligence
+Together combines offline ML signals with an optional generative AI experience director.
 
 #### 5.1 Dataset foundation
-- `ml/dataset/moods.csv` — mood taxonomy, including couple-only `sensual` and `erotic` states
+- `ml/dataset/moods.csv` — mood taxonomy
 - `ml/dataset/occasions.csv` — session occasions
 - `ml/dataset/activities.csv` — activity catalog
 - `ml/dataset/questions.csv` — starter question library
 - `ml/dataset/generate_dataset.py` — deterministic scenario generator
 
-Generate 5,000 reproducible scenarios:
+Generate reproducible scenarios:
 
 ```bash
 python3 ml/dataset/generate_dataset.py
 ```
 
 #### 5.2 Scene classification
-- Offline scikit-learn Random Forest
-- Predicts the current experience scene from mood, energy, time, occasion, relationship stage, bonding, intimacy and consent context
+Offline scikit-learn Random Forest predicts the current experience scene from mood, energy, time, occasion, relationship stage, bonding, intimacy and consent context.
 
 ```bash
 python3 ml/training/train_scene_model.py
@@ -66,9 +66,7 @@ python3 ml/predict_scene.py --mood romantic --energy medium --time 20 --time-of-
 ```
 
 #### 5.3 Activity recommendation
-- Offline Random Forest recommendation model
-- Ranks activities using Top-1 / Top-3 / Top-5 evaluation
-- Defense-in-depth safety filtering for couple-only and intimate activities
+Offline Random Forest ranks activities with safety filtering for couple-only and intimate activities.
 
 ```bash
 python3 ml/training/train_activity_model.py
@@ -76,62 +74,39 @@ python3 ml/predict_activity.py --mood sensual --energy medium --time 20 --time-o
 ```
 
 #### 5.4 Question Intelligence
-- TF-IDF + cosine similarity retrieval engine
-- Context-aware question ranking using mood, occasion, relationship stage, energy, intimacy and bonding
-- Repetition detection against previously asked questions
-- Couple/consent filtering
-- No external API required
-
-Build the question index:
+TF-IDF + cosine similarity retrieves relevant questions and detects semantic repetition. It also filters by couple/consent context.
 
 ```bash
 python3 ml/training/build_question_engine.py
-```
-
-Test recommendations:
-
-```bash
 python3 ml/predict_question.py --mood romantic --energy medium --occasion date_night --relationship serious --depth 3 --bonding 4 --intimacy moderate --couple-only true --consent true
 ```
 
 #### 5.5 Preference Learning
-Together now has an offline preference-learning layer that learns from explicit couple feedback instead of assuming every couple has the same tastes.
-
-Supported feedback signals:
-- `like`
-- `favorite`
-- `complete`
-- `skip`
-- `too_easy`
-- `too_deep`
-- `dislike`
-
-The online `PreferenceEngine` keeps transparent per-couple scores for activities, questions, categories, moods and intimacy levels. This can immediately personalize rankings without an external AI service.
-
-Record a feedback event:
+Together learns explicit couple preferences from `like`, `favorite`, `complete`, `skip`, `too_easy`, `too_deep`, and `dislike` feedback. The transparent preference profile is the primary signal until enough real feedback exists for the contextual model.
 
 ```bash
-python3 ml/record_feedback.py \
-  --couple-id demo-couple \
-  --item-type activity \
-  --item-id flirty_qa \
-  --action favorite \
-  --category conversation \
-  --mood romantic \
-  --intimacy-level moderate
-```
-
-Once at least 30 feedback events exist, the optional contextual Ridge model can be trained:
-
-```bash
+python3 ml/record_feedback.py --couple-id demo-couple --item-type activity --item-id flirty_qa --action favorite --category conversation --mood romantic --intimacy-level moderate
 python3 ml/train_preference_model.py
 ```
 
-This threshold is intentional: the first version learns online with an interpretable scoring system, while the supervised model waits for real interaction data instead of pretending synthetic examples represent genuine user preferences.
+Local preference data is intentionally ignored by Git so personal feedback is not committed.
+
+#### 5.6 AI Experience Director
+The Couple Room includes an `🪄 AI Director` that can create 5, 15, 30 or 60 minute experiences and adapt the next moment using:
+- current mood and intensity
+- relationship/bonding context
+- dates, memories and Little Moments
+- previously used AI moments
+- learned couple preferences
+- remaining session time
+
+The Director now receives the couple's learned positive and negative preference signals. In-app feedback buttons (`Helpful`, `Loved it`, `Skip`, `Too easy`, `Too deep`) update the local preference profile directly, allowing future sessions to become more personalized.
+
+The AI service runs on port `5003` and uses the OpenAI Responses API when an API key is configured. Embeddings are used to detect semantic repetition. The server sends only saved context needed for the experience; live camera, microphone and raw call content are not sent to the AI endpoint.
 
 ## Intimate moods
 
-`Sensual` and `Erotic` are modeled as couple-only states. The dataset marks them with higher intimacy and consent requirements. The product should expose these states only inside Couple Mode with explicit mutual consent and adjustable intensity. Content remains non-graphic, and either partner must be able to lower intensity or skip.
+`Sensual` and `Erotic` are modeled as couple-only states. The dataset marks them with higher intimacy and consent requirements. Product behavior should remain opt-in, non-graphic and consensual, with either partner able to lower intensity or skip.
 
 ## Stack
 
@@ -139,7 +114,8 @@ This threshold is intentional: the first version learns online with an interpret
 - Node.js + Express
 - Socket.IO
 - WebRTC
-- Python + pandas + scikit-learn + joblib for the offline ML pipeline
+- Python + pandas + scikit-learn + joblib for offline ML
+- OpenAI Responses API + embeddings for the optional AI Director
 - JSON file persistence for local development
 - bcryptjs + JWT authentication
 
@@ -149,17 +125,14 @@ PostgreSQL/pgvector and Redis can be introduced later when the local architectur
 
 Requirements: Node.js 20.19+ and Python 3.
 
-Install JavaScript dependencies:
+Install dependencies:
 
 ```bash
 npm install
-```
-
-Install ML dependencies:
-
-```bash
 python3 -m pip install -r ml/requirements.txt
 ```
+
+For the AI Director, create `.env` from `.env.example` and set `OPENAI_API_KEY` locally. Never commit the key.
 
 Run the application:
 
@@ -169,9 +142,8 @@ npm run dev
 
 Open `http://localhost:5173`.
 
-The local services are:
+Local services:
 - Main server: `5001`
 - Couple service: `5002`
+- AI experience service: `5003`
 - Client: `5173`
-
-The ML models are intentionally reproducible and are generated locally from the tracked datasets/scripts. No external AI/API connection is required for the ML pipeline.
