@@ -3,3 +3,4 @@ node_modules/
 .DS_Store
 data/db.json
 data/experience-sessions.json
+ml/models/*.joblib
