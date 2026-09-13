@@ -4,7 +4,7 @@ import { Server } from 'socket.io';
 import fs from 'fs'; import path from 'path'; import crypto from 'crypto';
 import bcrypt from 'bcryptjs'; import jwt from 'jsonwebtoken';
 const app=express(), server=http.createServer(app), io=new Server(server,{cors:{origin:'*'}});
-const PORT=process.env.PORT||5000, SECRET=process.env.JWT_SECRET||'together-dev-secret';
+const PORT=process.env.PORT||5001, SECRET=process.env.JWT_SECRET||'together-dev-secret';
 const dir=path.resolve('data'), file=path.join(dir,'db.json'); fs.mkdirSync(dir,{recursive:true});
 let db=fs.existsSync(file)?JSON.parse(fs.readFileSync(file,'utf8')):{users:[],friends:[],rooms:[],messages:[]};
 const save=()=>fs.writeFileSync(file,JSON.stringify(db,null,2)), id=()=>crypto.randomUUID();
