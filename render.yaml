@@ -31,13 +31,16 @@ services:
 
   - type: web
     name: together-ml
-    runtime: python
+    runtime: docker
     plan: free
-    buildCommand: pip install -r ml/requirements.txt && python ml/dataset/generate_dataset.py && python ml/training/train_scene_model.py && python ml/training/train_activity_model.py && python ml/training/build_question_engine.py
-    startCommand: python -m server.ml_service
+    dockerfilePath: ./Dockerfile.ml
     envVars:
-      - key: PORT
+      - key: NODE_ENV
+        value: production
+      - key: EXPERIENCE_AI_PORT
         value: 5003
+      - key: JWT_SECRET
+        sync: false
 
   - type: web
     name: together-client
