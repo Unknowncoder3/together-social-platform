@@ -1,7 +1,0 @@
-couple_id,item_type,item_id,action,category,mood,intimacy_level
-sample-couple,activity,flirty_qa,like,conversation,romantic,moderate
-sample-couple,activity,truth_or_dare,favorite,question_game,playful,light
-sample-couple,activity,deep_questions,skip,conversation,deep,high
-sample-couple,question,1,like,date,romantic,moderate
-sample-couple,question,2,complete,future,romantic,moderate
-sample-couple,question,3,too_deep,connection,deep,high
