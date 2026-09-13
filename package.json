@@ -18,12 +18,15 @@
     "ml:predict-question": "python3 ml/predict_question.py",
     "ml:train-preference": "python3 ml/train_preference_model.py",
     "ml:record-feedback": "python3 ml/record_feedback.py",
+    "infra:up": "docker compose up -d postgres redis",
+    "infra:down": "docker compose down",
     "start": "node server/index.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",
     "express": "^5.1.0",
     "jsonwebtoken": "^9.0.2",
+    "pg": "^8.16.3",
     "socket.io": "^4.8.1"
   },
   "devDependencies": {
