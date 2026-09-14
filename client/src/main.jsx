@@ -250,25 +250,20 @@ function Room({
      WEBRTC CONNECTION
      ======================================================= */
 
-  const make = async (
-    uid,
-    offer = false
-  ) => {
-    let pc = pcs.current[uid];
+  const make = async (uid) => {
+    if (!uid || uid === user.id) return null;
 
-    if (pc) {
-      return pc;
-    }
+    let pc = pcs.current[uid];
+    if (pc) return pc;
 
     pc = new RTCPeerConnection({
       iceServers: [
-        {
-          urls:
-            'stun:stun.l.google.com:19302'
-        }
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun.cloudflare.com:3478' }
       ]
     });
 
+    pc.__pendingIce = [];
     pcs.current[uid] = pc;
 
     const currentVideo =
@@ -276,97 +271,102 @@ function Room({
       stream.current?.getVideoTracks()[0];
 
     if (currentVideo) {
-      const source =
-        screenStream.current ||
-        stream.current;
-
-      const sender =
-        pc.addTrack(
-          currentVideo,
-          source
-        );
-
-      const params =
-        sender.getParameters();
-
-      params.encodings =
-        params.encodings?.length
-          ? params.encodings
-          : [{}];
-
-      params.encodings[0].maxBitrate =
-        3000000;
-
-      params.encodings[0].maxFramerate =
-        30;
-
-      sender
-        .setParameters(params)
-        .catch(() => {});
+      const source = screenStream.current || stream.current;
+      const sender = pc.addTrack(currentVideo, source);
+      const params = sender.getParameters();
+      params.encodings = params.encodings?.length
+        ? params.encodings
+        : [{}];
+      params.encodings[0].maxBitrate = 3000000;
+      params.encodings[0].maxFramerate = 30;
+      sender.setParameters(params).catch(() => {});
     }
 
     stream.current
       ?.getTracks()
-      .filter(
-        (t) => t.kind === 'audio'
-      )
-      .forEach((t) => {
-        pc.addTrack(
-          t,
-          stream.current
-        );
-      });
+      .filter((t) => t.kind === 'audio')
+      .forEach((t) => pc.addTrack(t, stream.current));
 
     pc.onicecandidate = (e) => {
-      if (!e.candidate) {
-        return;
-      }
-
-      s.emit(
-        'webrtc:signal',
-        {
-          roomId: room.id,
-          target: uid,
-          data: {
-            type: 'candidate',
-            candidate:
-              e.candidate
-          }
+      if (!e.candidate) return;
+      s.emit('webrtc:signal', {
+        roomId: room.id,
+        target: uid,
+        data: {
+          type: 'candidate',
+          candidate: e.candidate
         }
-      );
+      });
     };
 
     pc.ontrack = (e) => {
+      const incoming = e.streams?.[0];
+      if (!incoming) return;
+
       setRemote((a) => [
-        ...a.filter(
-          (x) => x.id !== uid
-        ),
+        ...a.filter((x) => x.id !== uid),
         {
           id: uid,
-          stream:
-            e.streams[0],
-          name: 'Guest'
+          stream: incoming,
+          name:
+            people.find((p) => p.id === uid)?.name ||
+            'Guest'
         }
       ]);
     };
 
-    if (offer) {
-      const o =
-        await pc.createOffer();
+    pc.onconnectionstatechange = () => {
+      const state = pc.connectionState;
 
-      await pc.setLocalDescription(o);
+      if (state === 'connected') {
+        setNotice(
+          `Connected to ${
+            people.find((p) => p.id === uid)?.name || 'participant'
+          }.`
+        );
+        setTimeout(() => setNotice(''), 1800);
+      }
 
-      s.emit(
-        'webrtc:signal',
-        {
-          roomId: room.id,
-          target: uid,
-          data: o
-        }
-      );
-    }
+      if (state === 'failed') {
+        setNotice(
+          'Direct video connection failed. Retrying…'
+        );
+      }
+    };
 
     return pc;
+  };
+
+  const shouldOffer = (uid) => {
+    if (!uid || uid === user.id) return false;
+    return String(user.id) < String(uid);
+  };
+
+  const sendOffer = async (uid) => {
+    if (!shouldOffer(uid)) return;
+
+    const pc = await make(uid);
+    if (!pc) return;
+
+    if (
+      pc.signalingState !== 'stable' &&
+      pc.signalingState !== 'have-local-offer'
+    ) {
+      return;
+    }
+
+    try {
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+
+      s.emit('webrtc:signal', {
+        roomId: room.id,
+        target: uid,
+        data: pc.localDescription
+      });
+    } catch (error) {
+      console.error('Together WebRTC offer failed:', error);
+    }
   };
 
   /* =======================================================
@@ -376,66 +376,38 @@ function Room({
   useEffect(() => {
     let alive = true;
 
-    /* Load previous messages */
-    api(
-      `/rooms/${room.id}/messages`
-    )
-      .then((d) =>
-        setMsgs(d.messages)
-      )
+    api(`/rooms/${room.id}/messages`)
+      .then((d) => setMsgs(d.messages))
       .catch(() => {});
 
-    /* Socket connection state */
-    const onConnect = () =>
+    const onConnect = () => {
       setConnected(true);
+      s.emit('room:join', room.id);
+    };
 
-    const onDisconnect = () =>
-      setConnected(false);
+    const onDisconnect = () => setConnected(false);
 
-    s.on(
-      'connect',
-      onConnect
-    ).on(
-      'disconnect',
-      onDisconnect
-    );
+    s.on('connect', onConnect).on('disconnect', onDisconnect);
 
-    /* Camera + microphone */
     (async () => {
       try {
         stream.current =
-          await navigator.mediaDevices.getUserMedia(
-            {
-              video: {
-                width: {
-                  ideal: 1280
-                },
-                height: {
-                  ideal: 720
-                },
-                aspectRatio: {
-                  ideal: 16 / 9
-                },
-                frameRate: {
-                  ideal: 30,
-                  max: 30
-                }
-              },
-
-              audio: {
-                echoCancellation: true,
-                noiseSuppression: true,
-                autoGainControl: true
-              }
+          await navigator.mediaDevices.getUserMedia({
+            video: {
+              width: { ideal: 1280 },
+              height: { ideal: 720 },
+              aspectRatio: { ideal: 16 / 9 },
+              frameRate: { ideal: 30, max: 30 }
+            },
+            audio: {
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true
             }
-          );
+          });
 
-        if (
-          alive &&
-          local.current
-        ) {
-          local.current.srcObject =
-            stream.current;
+        if (alive && local.current) {
+          local.current.srcObject = stream.current;
         }
       } catch {
         setNotice(
@@ -443,66 +415,99 @@ function Room({
         );
       }
 
-      s.emit(
-        'room:join',
-        room.id
-      );
+      if (s.connected) {
+        s.emit('room:join', room.id);
+      }
     })();
 
-    /* Existing users */
-    const users = (ids) => {
-      ids.forEach((id) =>
-        make(id, true)
+    /*
+       IMPORTANT:
+       The server tells us which existing participants are already
+       in this exact room. Only the participant with the smaller
+       stable user ID creates the offer. This prevents offer glare.
+    */
+    const users = async (ids) => {
+      const peers = (ids || []).filter(
+        (id) => id && id !== user.id
       );
+
+      for (const id of peers) {
+        await make(id);
+      }
+
+      for (const id of peers) {
+        if (shouldOffer(id)) {
+          await sendOffer(id);
+        }
+      }
     };
 
     /* WebRTC signaling */
-    const signal = async ({
-      from,
-      data
-    }) => {
-      const pc =
-        await make(
-          from,
-          false
-        );
+    const signal = async ({ from, data }) => {
+      if (!from || from === user.id || !data) return;
 
-      if (
-        data.type === 'offer'
-      ) {
-        await pc.setRemoteDescription(
-          data
-        );
+      const pc = await make(from);
+      if (!pc) return;
 
-        const a =
-          await pc.createAnswer();
+      try {
+        if (data.type === 'offer') {
+          /*
+             The smaller ID is the only intended offerer.
+             If an unexpected simultaneous offer arrives, use
+             rollback so the connection can recover instead of
+             getting stuck in have-local-offer.
+          */
+          if (pc.signalingState === 'have-local-offer') {
+            if (shouldOffer(from)) return;
+            await pc.setLocalDescription({
+              type: 'rollback'
+            });
+          }
 
-        await pc.setLocalDescription(
-          a
-        );
+          await pc.setRemoteDescription(data);
 
-        s.emit(
-          'webrtc:signal',
-          {
+          if (pc.__pendingIce?.length) {
+            const pending = pc.__pendingIce.splice(0);
+            for (const candidate of pending) {
+              await pc.addIceCandidate(candidate).catch(() => {});
+            }
+          }
+
+          const answer = await pc.createAnswer();
+          await pc.setLocalDescription(answer);
+
+          s.emit('webrtc:signal', {
             roomId: room.id,
             target: from,
-            data: a
+            data: pc.localDescription
+          });
+        } else if (data.type === 'answer') {
+          if (pc.signalingState !== 'have-local-offer') {
+            return;
           }
+
+          await pc.setRemoteDescription(data);
+
+          if (pc.__pendingIce?.length) {
+            const pending = pc.__pendingIce.splice(0);
+            for (const candidate of pending) {
+              await pc.addIceCandidate(candidate).catch(() => {});
+            }
+          }
+        } else if (data.type === 'candidate') {
+          if (!data.candidate) return;
+
+          if (pc.remoteDescription) {
+            await pc.addIceCandidate(data.candidate).catch(() => {});
+          } else {
+            pc.__pendingIce.push(data.candidate);
+          }
+        }
+      } catch (error) {
+        console.error('Together WebRTC signaling error:', error);
+        setNotice(
+          'Video negotiation failed. Re-entering the room may retry the connection.'
         );
-      } else if (
-        data.type === 'answer'
-      ) {
-        await pc.setRemoteDescription(
-          data
-        );
-      } else if (
-        data.type === 'candidate'
-      ) {
-        try {
-          await pc.addIceCandidate(
-            data.candidate
-          );
-        } catch {}
       }
     };
 
