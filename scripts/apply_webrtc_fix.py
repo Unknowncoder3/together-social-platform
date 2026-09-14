@@ -1,3 +1,4 @@
+# One-time patch helper for the shared-room WebRTC negotiation fix.
 from pathlib import Path
 p=Path('client/src/main.jsx')
 s=p.read_text()
