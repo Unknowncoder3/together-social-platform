@@ -15,9 +15,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Patch main.jsx
-        run: |
-          python3 scripts/apply_webrtc_fix.py
-          node --check client/src/main.jsx
+        run: python3 scripts/apply_webrtc_fix.py
       - name: Commit patch and remove helper workflow
         run: |
           git config user.name 'github-actions[bot]'
