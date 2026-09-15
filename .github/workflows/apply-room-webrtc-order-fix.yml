@@ -1,0 +1,38 @@
+name: Apply room WebRTC order fix
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Apply patch
+        run: python scripts/fix-room-webrtc-order.py
+      - name: Commit patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add client/src/main.jsx
+          git commit -m "fix WebRTC handler order in rooms"
+          git push
+      - name: Remove temporary patch files
+        if: always()
+        run: |
+          git rm -f scripts/fix-room-webrtc-order.py .github/workflows/apply-room-webrtc-order-fix.yml || true
+          if ! git diff --cached --quiet; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit -m "remove temporary WebRTC order patch workflow"
+            git push
+          fi
