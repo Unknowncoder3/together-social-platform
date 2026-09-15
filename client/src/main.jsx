@@ -219,6 +219,7 @@ function Room({
   const stream = useRef();
   const screenStream = useRef();
   const pcs = useRef({});
+  const joinedRoom = useRef(false);
 
   const [cam, setCam] = useState(true);
   const [mic, setMic] = useState(true);
@@ -380,12 +381,21 @@ function Room({
       .then((d) => setMsgs(d.messages))
       .catch(() => {});
 
-    const onConnect = () => {
-      setConnected(true);
+    const joinRoom = () => {
+      if (!s.connected || joinedRoom.current) return;
+      joinedRoom.current = true;
       s.emit('room:join', room.id);
     };
 
-    const onDisconnect = () => setConnected(false);
+    const onConnect = () => {
+      setConnected(true);
+      if (stream.current) joinRoom();
+    };
+
+    const onDisconnect = () => {
+      setConnected(false);
+      joinedRoom.current = false;
+    };
 
     s.on('connect', onConnect).on('disconnect', onDisconnect);
 
@@ -582,9 +592,7 @@ function Room({
         );
       }
 
-      if (s.connected) {
-        s.emit('room:join', room.id);
-      }
+      joinRoom();
     })();
 
     return () => {
