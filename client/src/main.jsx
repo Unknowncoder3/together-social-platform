@@ -389,6 +389,31 @@ function Room({
 
     s.on('connect', onConnect).on('disconnect', onDisconnect);
 
+    s.on(
+      'room:users',
+      users
+    )
+      .on(
+        'webrtc:signal',
+        signal
+      )
+      .on(
+        'chat:message',
+        chat
+      )
+      .on(
+        'room:notice',
+        n
+      )
+      .on(
+        'room:presence',
+        p
+      )
+      .on(
+        'room:reaction',
+        react
+      );
+
     (async () => {
       try {
         stream.current =
@@ -556,30 +581,7 @@ function Room({
       );
     };
 
-    s.on(
-      'room:users',
-      users
-    )
-      .on(
-        'webrtc:signal',
-        signal
-      )
-      .on(
-        'chat:message',
-        chat
-      )
-      .on(
-        'room:notice',
-        n
-      )
-      .on(
-        'room:presence',
-        p
-      )
-      .on(
-        'room:reaction',
-        react
-      );
+
 
     return () => {
       alive = false;
