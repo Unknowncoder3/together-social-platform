@@ -389,61 +389,9 @@ function Room({
 
     s.on('connect', onConnect).on('disconnect', onDisconnect);
 
-    s.on(
-      'room:users',
-      users
-    )
-      .on(
-        'webrtc:signal',
-        signal
-      )
-      .on(
-        'chat:message',
-        chat
-      )
-      .on(
-        'room:notice',
-        n
-      )
-      .on(
-        'room:presence',
-        p
-      )
-      .on(
-        'room:reaction',
-        react
-      );
 
-    (async () => {
-      try {
-        stream.current =
-          await navigator.mediaDevices.getUserMedia({
-            video: {
-              width: { ideal: 1280 },
-              height: { ideal: 720 },
-              aspectRatio: { ideal: 16 / 9 },
-              frameRate: { ideal: 30, max: 30 }
-            },
-            audio: {
-              echoCancellation: true,
-              noiseSuppression: true,
-              autoGainControl: true
-            }
-          });
 
-        if (alive && local.current) {
-          local.current.srcObject = stream.current;
-        }
-      } catch {
-        setNotice(
-          'Camera/microphone unavailable. You can still use chat.'
-        );
-      }
 
-      if (s.connected) {
-        s.emit('room:join', room.id);
-      }
-    })();
 
     /*
        IMPORTANT:
@@ -582,6 +530,62 @@ function Room({
     };
 
 
+
+    s.on(
+      'room:users',
+      users
+    )
+      .on(
+        'webrtc:signal',
+        signal
+      )
+      .on(
+        'chat:message',
+        chat
+      )
+      .on(
+        'room:notice',
+        n
+      )
+      .on(
+        'room:presence',
+        p
+      )
+      .on(
+        'room:reaction',
+        react
+      );
+
+    (async () => {
+      try {
+        stream.current =
+          await navigator.mediaDevices.getUserMedia({
+            video: {
+              width: { ideal: 1280 },
+              height: { ideal: 720 },
+              aspectRatio: { ideal: 16 / 9 },
+              frameRate: { ideal: 30, max: 30 }
+            },
+            audio: {
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true
+            }
+          });
+
+        if (alive && local.current) {
+          local.current.srcObject = stream.current;
+        }
+      } catch {
+        setNotice(
+          'Camera/microphone unavailable. You can still use chat.'
+        );
+      }
+
+      if (s.connected) {
+        s.emit('room:join', room.id);
+      }
+    })();
 
     return () => {
       alive = false;
