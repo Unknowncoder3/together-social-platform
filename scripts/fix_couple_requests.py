@@ -9,10 +9,11 @@ block = text[start:end]
 if 'const incoming=state?.incoming||[];' not in block:
     block = block.replace(
         'const renderConnect=()=>{',
-        'const renderConnect=()=>{const incoming=state?.incoming||[];const outgoing=state?.outgoing||[];'
+        'const renderConnect=()=>{const incoming=state?.incoming||[];const outgoing=state?.outgoing||[];',
+        1
     )
-    marker = '<div id=\\"coupleConnectBox\\"></div>`;'
-    pending = '''${incoming.length?`<div class=\\"bondingGate\\"><h3>💌 Couple request waiting</h3><p class=\\"coupleMeta\\">Someone wants to connect with you as a partner.</p>${incoming.map(r=>`<div class=\\"listItem\\"><span><b>${esc(r.user?.name||'Someone')}</b><small>${esc(r.user?.email||'')}</small></span><div style=\\"display:flex;gap:8px\\"><button class=\\"couplePrimary\\" data-accept=\\"${r.id}\\">Accept ❤️</button><button class=\\"coupleSubtle\\" data-reject=\\"${r.id}\\">Decline</button></div></div>`).join('')}</div>`:''}${outgoing.length?`<div class=\\"roomInfo\\">⏳ Waiting for ${esc(outgoing[0]?.user?.name||'them')} to accept your couple request.</div>`:''}<div id=\\"coupleConnectBox\\"></div>`;'''
+    marker = '<div id="coupleConnectBox"></div>`;'
+    pending = '''${incoming.length?`<div class="bondingGate"><h3>💌 Couple request waiting</h3><p class="coupleMeta">Someone wants to connect with you as a partner.</p>${incoming.map(r=>`<div class="listItem"><span><b>${esc(r.user?.name||'Someone')}</b><small>${esc(r.user?.email||'')}</small></span><div style="display:flex;gap:8px"><button class="couplePrimary" data-accept="${r.id}">Accept ❤️</button><button class="coupleSubtle" data-reject="${r.id}">Decline</button></div></div>`).join('')}</div>`:''}${outgoing.length?`<div class="roomInfo">⏳ Waiting for ${esc(outgoing[0]?.user?.name||'them')} to accept your couple request.</div>`:''}<div id="coupleConnectBox"></div>`;'''
     if marker not in block:
         raise SystemExit('coupleConnectBox marker not found')
     block = block.replace(marker, pending, 1)
